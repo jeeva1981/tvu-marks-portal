@@ -1,415 +1,362 @@
 import os
-import re
 import json
 import uuid
-import sqlite3
 import pandas as pd
-from flask import Flask, request, jsonify, render_template_string, session, redirect, url_for
+from flask import Flask, request, render_template_string, redirect, url_for, session, jsonify
 from flask_cors import CORS
-from werkzeug.security import generate_password_hash, check_password_hash
-
-# ==============================================================================
-# 1. அடிப்படை அமைப்புகள் (Super Admin Login விவரங்கள்)
-# ==============================================================================
-SUPER_ADMIN_USER = "admin"
-SUPER_ADMIN_PASS = "admin123"
-DB_PATH = "tvu_college_cloud.db"
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "tvu_cloud_secret_key_2026")
+app.secret_key = "tvu_super_secret_key_2026"
 CORS(app)
 
-# ==============================================================================
-# 2. டேட்டாபேஸ் (SQLite) அமைப்பு
-# ==============================================================================
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        department TEXT NOT NULL,
-        api_token TEXT UNIQUE NOT NULL,
-        is_active INTEGER DEFAULT 1
-    )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS user_marks (
-        user_id INTEGER PRIMARY KEY,
-        subject_code TEXT,
-        records_json TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )''')
-    
-    # ஆரம்ப Commerce கணக்கு
-    c.execute("SELECT id FROM users WHERE username = 'commerce'")
-    if not c.fetchone():
-        c.execute("INSERT INTO users (username, password_hash, department, api_token, is_active) VALUES (?, ?, ?, ?, 1)",
-                  ("commerce", generate_password_hash("1234"), "Department of Commerce", "TVU-COMMERCE01"))
-    conn.commit()
-    conn.close()
+USERS_FILE = "users.json"
+MARKS_STORE = {}
+ABSENTEES_STORE = {}
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        default_users = {
+            "commerce": {
+                "password": "1234",
+                "dept": "Department of Commerce",
+                "token": "TVU-COMMERCE01",
+                "active": True
+            }
+        }
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(default_users, f, indent=2)
+    with open(USERS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-init_db()
+def save_users(users):
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, indent=2)
 
-# ==============================================================================
-# 3. இணையதளப் பக்கங்கள் (HTML Templates)
-# ==============================================================================
-LOGIN_HTML = """<!DOCTYPE html>
+LOGIN_HTML = """
+<!DOCTYPE html>
 <html lang="ta">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TVU Internal Marks Portal - Login</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 35px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; }
-        h2 { color: #1e3a8a; text-align: center; margin-bottom: 20px; }
-        input { width: 100%; padding: 10px; margin: 6px 0 15px 0; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold; }
-        .err { color: #dc2626; font-size: 14px; text-align: center; margin-bottom: 10px; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8">
+  <title>TVU Automation Portal - Login</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .box { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 360px; }
+    h2 { color: #1e3a8a; text-align: center; margin-top: 0; }
+    label { font-weight: bold; font-size: 13px; color: #334155; display: block; margin-top: 12px; }
+    input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
+    button { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 15px; margin-top: 20px; cursor: pointer; }
+    .err { color: #dc2626; font-size: 13px; text-align: center; margin-top: 10px; }
+  </style>
 </head>
 <body>
-<div class="card">
-    <h2>TVU Marks Portal</h2>
-    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <div class="box">
+    <h2>TVU Automation Portal</h2>
     <form method="POST">
-        <label>பயனர் பெயர் (Username):</label>
-        <input type="text" name="username" required>
-        <label>கடவுச்சொல் (Password):</label>
-        <input type="password" name="password" required>
-        <button type="submit">உள்நுழைக (Login)</button>
+      <label>பயனர் பெயர் (Username):</label>
+      <input type="text" name="username" required>
+      <label>கடவுச்சொல் (Password):</label>
+      <input type="password" name="password" required>
+      <button type="submit">உள்நுழைக (Login)</button>
+      {% if error %}<div class="err">{{ error }}</div>{% endif %}
     </form>
-</div>
+  </div>
 </body>
-</html>"""
+</html>
+"""
 
-ADMIN_HTML = """<!DOCTYPE html>
+ADMIN_HTML = """
+<!DOCTYPE html>
 <html lang="ta">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Admin Control Panel</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; margin: 0; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; max-width: 950px; margin: auto; }
-        .container { max-width: 950px; margin: 20px auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-        .form-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        input { padding: 9px; border: 1px solid #cbd5e1; border-radius: 5px; flex: 1; min-width: 170px; }
-        .btn-add { background: #16a34a; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; font-size: 14px; }
-        th { background: #f8fafc; color: #1e3a8a; }
-        .badge-active { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-        .badge-blocked { background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-        .btn-toggle { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
-        .btn-block { background: #dc2626; }
-        .btn-allow { background: #2563eb; }
-        .btn-del { background: #64748b; margin-left: 5px; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Super Admin - TVU Portal</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 25px; }
+    .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-top: 20px; }
+    input { padding: 8px; margin-right: 10px; border: 1px solid #cbd5e1; border-radius: 4px; }
+    button { padding: 8px 15px; background: #16a34a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 10px; border: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f1f5f9; }
+    a { color: white; text-decoration: none; font-weight: bold; }
+  </style>
 </head>
 <body>
-<div class="header">
-    <div><strong>கல்லூரி நிர்வாகி கட்டுப்பாட்டு அறை (Super Admin)</strong></div>
-    <div><a href="/logout" style="color: #fde047; text-decoration: none; font-weight: bold;">வெளியேறு</a></div>
-</div>
-<div class="container">
-    <h3>புதிய துறை கணக்கு உருவாக்குதல்</h3>
-    <form method="POST" action="/admin/create_user" class="form-row">
-        <input type="text" name="department" placeholder="துறை பெயர் (எ.கா: Tamil / CS)" required>
-        <input type="text" name="username" placeholder="Username" required>
-        <input type="text" name="password" placeholder="Password" required>
-        <button type="submit" class="btn-add">+ அனுமதி உருவாக்கு</button>
+  <div class="header">
+    <h3>Super Admin Control Panel</h3>
+    <a href="/logout">வெளியேறு (Logout)</a>
+  </div>
+  <div class="card">
+    <h4>புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
+    <form method="POST" action="/admin/add">
+      <input type="text" name="dept" placeholder="துறை பெயர் (எ.கா: Dept of Tamil)" required>
+      <input type="text" name="username" placeholder="Username (எ.கா: tamil)" required>
+      <input type="text" name="password" placeholder="Password (எ.கா: TvmTam@2026)" required>
+      <button type="submit">+ அனுமதி உருவாக்கு</button>
     </form>
+  </div>
+  <div class="card">
+    <h4>அனுமதிக்கப்பட்ட துறைகள் & Extension Tokens</h4>
     <table>
-        <tr><th>துறை</th><th>Username</th><th>Extension Token</th><th>நிலை</th><th>கட்டுப்பாடு</th></tr>
-        {% for u in users %}
-        <tr>
-            <td>{{ u['department'] }}</td>
-            <td><b>{{ u['username'] }}</b></td>
-            <td><code style="color:#b91c1c; font-weight:bold;">{{ u['api_token'] }}</code></td>
-            <td>{% if u['is_active'] == 1 %}<span class="badge-active">Active</span>{% else %}<span class="badge-blocked">Blocked</span>{% endif %}</td>
-            <td>
-                <form method="POST" action="/admin/toggle_user/{{ u['id'] }}" style="display:inline;">
-                    {% if u['is_active'] == 1 %}<button class="btn-toggle btn-block">Block</button>{% else %}<button class="btn-toggle btn-allow">Allow</button>{% endif %}
-                </form>
-                <form method="POST" action="/admin/delete_user/{{ u['id'] }}" style="display:inline;" onsubmit="return confirm('நீக்கலாமா?');">
-                    <button class="btn-toggle btn-del">நீக்கு</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
+      <tr><th>துறை</th><th>Username</th><th>Password</th><th>Extension Token</th><th>நிலை</th><th>நடவடிக்கை</th></tr>
+      {% for u, info in users.items() %}
+      <tr>
+        <td>{{ info.dept }}</td>
+        <td><b>{{ u }}</b></td>
+        <td>{{ info.password }}</td>
+        <td style="color:#b91c1c; font-weight:bold;">{{ info.token }}</td>
+        <td>{{ "Active" if info.active else "Blocked" }}</td>
+        <td><a href="/admin/toggle/{{ u }}" style="color:#1e3a8a;">{{ "Block செய்" if info.active else "Allow செய்" }}</a></td>
+      </tr>
+      {% endfor %}
     </table>
-</div>
+  </div>
 </body>
-</html>"""
+</html>
+"""
 
-STAFF_DASHBOARD_HTML = """<!DOCTYPE html>
+DASHBOARD_HTML = """
+<!DOCTYPE html>
 <html lang="ta">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ user['department'] }} - Internal Marks</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; margin: 0; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: #1f497d; color: white; padding: 15px 25px; border-radius: 8px; max-width: 750px; margin: auto; }
-        .container { max-width: 750px; margin: 20px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .token-alert { background: #fef9c3; border-left: 4px solid #ca8a04; padding: 12px; margin-bottom: 20px; font-size: 14px; }
-        label { font-weight: bold; display: block; margin-top: 15px; }
-        input[type="text"], input[type="file"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        button { background: #1f497d; color: white; border: none; padding: 12px; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 20px; width: 100%; font-weight: bold; }
-        .status-box { margin-top: 20px; padding: 15px; background: #e8f4fd; border-left: 4px solid #1f497d; line-height: 1.6; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-        th, td { border: 1px solid #cbd5e1; padding: 7px; text-align: center; }
-        th { background: #1f497d; color: white; }
-    </style>
+  <meta charset="UTF-8">
+  <title>TVU Automation Dashboard</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
+    .container { max-width: 900px; margin: auto; }
+    .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    h3 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+    label { font-weight: bold; font-size: 13px; color: #334155; display: block; margin-top: 12px; }
+    input[type="text"], input[type="file"], textarea { width: 100%; padding: 9px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
+    .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
+    .btn-red { width: 100%; padding: 11px; background: #dc2626; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
+    .msg-ok { background: #dcfce7; border-left: 4px solid #16a34a; padding: 12px; margin-top: 15px; font-size: 13px; }
+    a { color: white; text-decoration: none; font-weight: bold; }
+  </style>
 </head>
 <body>
-<div class="header">
-    <div><strong>{{ user['department'] }}</strong> ({{ user['username'] }})</div>
-    <div><a href="/logout" style="color: #fde047; text-decoration: none; font-weight: bold;">வெளியேறு</a></div>
-</div>
-
-<div class="container">
-    <div class="token-alert">
-        <strong>உங்கள் Extension Token:</strong> <code style="font-size: 16px; color: #b91c1c; font-weight: bold;">{{ user['api_token'] }}</code>
+  <div class="container">
+    <div class="header">
+      <div><b>{{ dept }}</b> ({{ username }})</div>
+      <a href="/logout">வெளியேறு (Logout)</a>
     </div>
 
-    <form id="uploadForm">
-        <label>1. பாடக் குறியீடு (Subject Code - எ.கா: 26UACM13B):</label>
-        <input type="text" id="subject_code" placeholder="26UACM13B" required>
+    <div class="token-bar">
+      உங்கள் Extension Token: <span style="color:#dc2626;">{{ token }}</span>
+    </div>
 
-        <label>2. எக்செல் கோப்பைத் தேர்ந்தெடுக்கவும் (marks.xlsx):</label>
-        <input type="file" id="excel_file" accept=".xlsx, .xls" required>
+    <div class="grid">
+      <!-- 1. Internal Marks Section -->
+      <div class="card">
+        <h3>1. Internal Marks பதிவேற்றம்</h3>
+        <form method="POST" action="/upload-marks" enctype="multipart/form-data">
+          <label>பாடக் குறியீடு (Subject Code - எ.கா: 26UACM13B):</label>
+          <input type="text" name="subject_code" placeholder="26UACM13B" required>
+          <label>எக்செல் கோப்பு (marks.xlsx):</label>
+          <input type="file" name="file" accept=".xlsx,.xls" required>
+          <button type="submit" class="btn-blue">மதிப்பெண்களைப் பதிவேற்று</button>
+        </form>
+        {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
+      </div>
 
-        <button type="submit">மதிப்பெண்களைப் பதிவேற்றி சரிபார் (Upload & Preview)</button>
-    </form>
-
-    <div class="status-box" id="statusBox" style="display:none;"></div>
-    <div id="previewArea"></div>
-</div>
-
-<script>
-document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const formData = new FormData();
-    formData.append('subject_code', document.getElementById('subject_code').value.trim().toUpperCase());
-    formData.append('file', document.getElementById('excel_file').files[0]);
-
-    const statusBox = document.getElementById('statusBox');
-    statusBox.style.display = 'block';
-    statusBox.innerHTML = 'எக்செல் தரவுகள் படிக்கப்படுகின்றன...';
-
-    const res = await fetch('/api/staff/upload', { method: 'POST', body: formData });
-    const data = await res.json();
-
-    if (data.success) {
-        statusBox.innerHTML = `<strong>தயார்!</strong> பாடம்: <b>${data.subject_code}</b> (ஷீட்: ${data.sheet}) | மொத்த மாணவர்கள்: <b>${data.count}</b>.<br>
-        இப்போது TVU போர்ட்டல் பக்கத்தில் Chrome Extension-ஐத் திறந்து <b>"மதிப்பெண்களை நிரப்பு"</b> பட்டனை அழுத்தவும்.`;
-        let html = '<table><tr><th>Register No</th><th>Attendance</th><th>Test</th><th>Assignment</th></tr>';
-        data.preview.forEach(r => {
-            html += `<tr><td>${r.reg}</td><td>${r.att}</td><td>${r.test}</td><td>${r.assgn}</td></tr>`;
-        });
-        html += '</table>';
-        document.getElementById('previewArea').innerHTML = html;
-    } else {
-        statusBox.innerHTML = `<span style="color:red; font-weight:bold;">பிழை: ${data.error}</span>`;
-    }
-});
-</script>
+      <!-- 2. Exam Attendance / Absentees Section -->
+      <div class="card">
+        <h3>2. Exam Attendance (Absentees Entry)</h3>
+        <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
+          <label>பாடக் குறியீடு (Excel-ல் இருந்தால் காலியாக விடலாம்):</label>
+          <input type="text" name="abs_subject_code" placeholder="எ.கா: 23ULT10 (Excel-ல் இல்லையென்றால் மட்டும்)">
+          <label>வழி A: Absent மாணவர் Register Numbers (Copy-Paste):</label>
+          <textarea name="abs_text" rows="3" placeholder="20423U10117, 20424U10001 (கமா அல்லது வரிசை வாரியாக இடவும்)"></textarea>
+          <label>வழி B: அல்லது Absentees எக்செல் கோப்பு (Subject Code உடன்):</label>
+          <input type="file" name="abs_file" accept=".xlsx,.xls">
+          <button type="submit" class="btn-red">Absentees பட்டியலைச் சேமி</button>
+        </form>
+        {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
 </body>
-</html>"""
+</html>
+"""
 
-# ==============================================================================
-# 4. Routes & API
-# ==============================================================================
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def login():
-    if request.method == 'POST':
-        uname = request.form.get('username', '').strip()
-        pwd = request.form.get('password', '').strip()
+    if request.method == "POST":
+        u = request.form.get("username", "").strip()
+        p = request.form.get("password", "").strip()
+        if u == "admin" and p == "admin123":
+            session["user"] = "admin"
+            return redirect(url_for("admin_panel"))
+        users = load_users()
+        if u in users and users[u]["password"] == p:
+            if not users[u]["active"]:
+                return render_template_string(LOGIN_HTML, error="உங்கள் கணக்கு தற்காலிகமாக நிறுத்தப்பட்டுள்ளது.")
+            session["user"] = u
+            return redirect(url_for("dashboard"))
+        return render_template_string(LOGIN_HTML, error="தவறான Username அல்லது Password!")
+    return render_template_string(LOGIN_HTML, error=None)
 
-        if uname == SUPER_ADMIN_USER and pwd == SUPER_ADMIN_PASS:
-            session['role'] = 'admin'
-            return redirect(url_for('admin_panel'))
-
-        conn = get_db()
-        user = conn.execute("SELECT * FROM users WHERE username = ?", (uname,)).fetchone()
-        conn.close()
-
-        if user and check_password_hash(user['password_hash'], pwd):
-            if user['is_active'] == 0:
-                return render_template_string(LOGIN_HTML, error="உங்கள் கணக்கு நிர்வாகியால் நிறுத்தப்பட்டுள்ளது!")
-            session['role'] = 'staff'
-            session['user_id'] = user['id']
-            return redirect(url_for('staff_dashboard'))
-        else:
-            return render_template_string(LOGIN_HTML, error="தவறான பயனர் பெயர் அல்லது கடவுச்சொல்!")
-    return render_template_string(LOGIN_HTML)
-
-@app.route('/admin')
+@app.route("/admin")
 def admin_panel():
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-    conn = get_db()
-    users = conn.execute("SELECT * FROM users ORDER BY id DESC").fetchall()
-    conn.close()
-    return render_template_string(ADMIN_HTML, users=users)
+    if session.get("user") != "admin":
+        return redirect(url_for("login"))
+    return render_template_string(ADMIN_HTML, users=load_users())
 
-@app.route('/admin/create_user', methods=['POST'])
-def create_user():
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-    dept = request.form.get('department').strip()
-    uname = request.form.get('username').strip()
-    pwd = request.form.get('password').strip()
-    token = "TVU-" + uuid.uuid4().hex[:8].upper()
+@app.route("/admin/add", methods=["POST"])
+def admin_add():
+    if session.get("user") != "admin":
+        return redirect(url_for("login"))
+    users = load_users()
+    u = request.form.get("username").strip()
+    users[u] = {
+        "dept": request.form.get("dept").strip(),
+        "password": request.form.get("password").strip(),
+        "token": "TVM-" + uuid.uuid4().hex[:8].upper(),
+        "active": True
+    }
+    save_users(users)
+    return redirect(url_for("admin_panel"))
 
-    conn = get_db()
-    try:
-        conn.execute("INSERT INTO users (username, password_hash, department, api_token, is_active) VALUES (?, ?, ?, ?, 1)",
-                     (uname, generate_password_hash(pwd), dept, token))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        pass
-    conn.close()
-    return redirect(url_for('admin_panel'))
+@app.route("/admin/toggle/<username>")
+def admin_toggle(username):
+    if session.get("user") != "admin":
+        return redirect(url_for("login"))
+    users = load_users()
+    if username in users:
+        users[username]["active"] = not users[username]["active"]
+        save_users(users)
+    return redirect(url_for("admin_panel"))
 
-@app.route('/admin/toggle_user/<int:user_id>', methods=['POST'])
-def toggle_user(user_id):
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-    conn = get_db()
-    user = conn.execute("SELECT is_active FROM users WHERE id = ?", (user_id,)).fetchone()
-    if user:
-        new_status = 0 if user['is_active'] == 1 else 1
-        conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_status, user_id))
-        conn.commit()
-    conn.close()
-    return redirect(url_for('admin_panel'))
+@app.route("/dashboard")
+def dashboard():
+    u = session.get("user")
+    users = load_users()
+    if not u or u not in users:
+        return redirect(url_for("login"))
+    info = users[u]
+    return render_template_string(
+        DASHBOARD_HTML,
+        dept=info["dept"],
+        username=u,
+        token=info["token"],
+        marks_msg=session.pop("marks_msg", None),
+        abs_msg=session.pop("abs_msg", None)
+    )
 
-@app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
-def delete_user(user_id):
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-    conn = get_db()
-    conn.execute("DELETE FROM user_marks WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('admin_panel'))
-
-@app.route('/dashboard')
-def staff_dashboard():
-    if session.get('role') != 'staff':
-        return redirect(url_for('login'))
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE id = ?", (session['user_id'],)).fetchone()
-    conn.close()
-    if not user or user['is_active'] == 0:
-        session.clear()
-        return redirect(url_for('login'))
-    return render_template_string(STAFF_DASHBOARD_HTML, user=user)
-
-@app.route('/api/staff/upload', methods=['POST'])
-def staff_upload():
-    if session.get('role') != 'staff':
-        return jsonify({"success": False, "error": "Unauthorized"})
-
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE id = ?", (session['user_id'],)).fetchone()
-    subject_code = request.form.get('subject_code', '').strip().upper()
-    file = request.files.get('file')
-
-    try:
-        xls = pd.ExcelFile(file)
-        target_clean = re.sub(r'[^A-Za-z0-9]', '', subject_code).upper()
-        actual_sheet = next((s for s in xls.sheet_names if target_clean in re.sub(r'[^A-Za-z0-9]', '', str(s)).upper()), None)
-
-        if not actual_sheet:
-            if len(xls.sheet_names) == 1:
-                actual_sheet = xls.sheet_names[0]
-            else:
-                conn.close()
-                return jsonify({"success": False, "error": f"'{subject_code}' என்ற ஷீட் எக்செல்லில் இல்லை. உள்ள ஷீட்கள்: {xls.sheet_names}"})
-
-        df = pd.read_excel(xls, sheet_name=actual_sheet)
-        df.columns = [str(c).strip() for c in df.columns]
-
-        reg_col = next((c for c in df.columns if any(k in c.lower().replace(" ", "") for k in ["reg", "roll"])), None)
-        if not reg_col:
-            conn.close()
-            return jsonify({"success": False, "error": "Register Number காலம் எக்செல்லில் இல்லை."})
-
-        df = df.rename(columns={reg_col: 'Register Number'})
-        for c in df.columns:
-            cl = c.lower().replace(" ", "")
-            if any(k in cl for k in ["test", "internal", "cia"]) and "Test Marks" not in df.columns:
-                df = df.rename(columns={c: 'Test Marks'})
-            elif "attend" in cl and "Attendance Marks" not in df.columns:
-                df = df.rename(columns={c: 'Attendance Marks'})
-            elif "assign" in cl and "Assignment Marks" not in df.columns:
-                df = df.rename(columns={c: 'Assignment Marks'})
+@app.route("/upload-marks", methods=["POST"])
+def upload_marks():
+    u = session.get("user")
+    users = load_users()
+    if not u or u not in users:
+        return redirect(url_for("login"))
+    token = users[u]["token"]
+    sub = request.form.get("subject_code", "").strip().upper()
+    file = request.files.get("file")
+    if file:
+        xl = pd.ExcelFile(file)
+        sheet = sub if sub in xl.sheet_names else xl.sheet_names[0]
+        df = xl.parse(sheet)
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        reg_col = next((c for c in df.columns if "reg" in c), df.columns[0])
+        att_col = next((c for c in df.columns if "att" in c), None)
+        test_col = next((c for c in df.columns if "test" in c or "cia" in c), None)
+        ass_col = next((c for c in df.columns if "ass" in c), None)
 
         records = []
-        for _, r in df.iterrows():
-            reg = str(r.get("Register Number", "")).strip().replace(".0", "")
+        for _, row in df.iterrows():
+            reg = str(row[reg_col]).strip()
             if reg and reg.lower() != "nan":
                 records.append({
                     "reg": reg,
-                    "att": str(r.get("Attendance Marks", "")).strip().replace(".0", ""),
-                    "test": str(r.get("Test Marks", "")).strip().replace(".0", ""),
-                    "assgn": str(r.get("Assignment Marks", "")).strip().replace(".0", "")
+                    "att": "" if not att_col or pd.isna(row[att_col]) else str(int(row[att_col])) if isinstance(row[att_col], float) and row[att_col].is_integer() else str(row[att_col]).strip(),
+                    "test": "" if not test_col or pd.isna(row[test_col]) else str(int(row[test_col])) if isinstance(row[test_col], float) and row[test_col].is_integer() else str(row[test_col]).strip(),
+                    "ass": "" if not ass_col or pd.isna(row[ass_col]) else str(int(row[ass_col])) if isinstance(row[ass_col], float) and row[ass_col].is_integer() else str(row[ass_col]).strip()
                 })
+        MARKS_STORE[token] = {"subject_code": sub, "records": records}
+        session["marks_msg"] = f"தயார்! பாடம்: {sub} | மொத்த மாணவர்கள்: {len(records)}."
+    return redirect(url_for("dashboard"))
 
-        conn.execute("INSERT OR REPLACE INTO user_marks (user_id, subject_code, records_json) VALUES (?, ?, ?)",
-                     (user['id'], subject_code, json.dumps(records)))
-        conn.commit()
-        conn.close()
-        return jsonify({
-            "success": True,
-            "subject_code": subject_code,
-            "sheet": actual_sheet,
-            "count": len(records),
-            "preview": records[:5]
-        })
-    except Exception as e:
-        conn.close()
-        return jsonify({"success": False, "error": str(e)})
+@app.route("/upload-absentees", methods=["POST"])
+def upload_absentees():
+    u = session.get("user")
+    users = load_users()
+    if not u or u not in users:
+        return redirect(url_for("login"))
+    token = users[u]["token"]
+    sub = request.form.get("abs_subject_code", "").strip().upper()
+    abs_text = request.form.get("abs_text", "")
+    abs_file = request.files.get("abs_file")
 
-@app.route('/api/extension/get-marks', methods=['GET'])
-def extension_get_marks():
-    token = request.headers.get('Authorization', '').replace('Bearer ', '').strip()
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE api_token = ?", (token,)).fetchone()
-    if not user:
-        conn.close()
-        return jsonify({"success": False, "error": "தவறான User Token!"})
-    if user['is_active'] == 0:
-        conn.close()
-        return jsonify({"success": False, "error": "நிர்வாகியால் உங்கள் அனுமதி நிறுத்தப்பட்டுள்ளது!"})
+    abs_list = []
+    # வழி A: Text box-ல் இருந்து எடுத்தல்
+    for item in abs_text.replace("\n", ",").replace(" ", ",").split(","):
+        cleaned = item.strip().upper()
+        if cleaned and cleaned not in abs_list:
+            abs_list.append(cleaned)
 
-    marks_row = conn.execute("SELECT * FROM user_marks WHERE user_id = ?", (user['id'],)).fetchone()
-    conn.close()
-    if not marks_row:
-        return jsonify({"success": False, "error": "இணையதளத்தில் மதிப்பெண்கள் இன்னும் பதிவேற்றப்படவில்லை!"})
+    # வழி B: Excel கோப்பில் இருந்து Subject Code & Register No எடுத்தல்
+    if abs_file and abs_file.filename:
+        df = pd.read_excel(abs_file)
+        df.columns = [str(c).strip().lower() for c in df.columns]
 
-    return jsonify({
-        "success": True,
-        "department": user['department'],
-        "subject_code": marks_row['subject_code'],
-        "records": json.loads(marks_row['records_json'])
-    })
+        sub_col = next((c for c in df.columns if "sub" in c or "code" in c), None)
+        if not sub and sub_col:
+            first_sub = df[sub_col].dropna()
+            if not first_sub.empty:
+                sub = str(first_sub.iloc[0]).strip().upper()
 
-@app.route('/logout')
+        reg_col = next((c for c in df.columns if "reg" in c), None)
+        target_cols = [reg_col] if reg_col else [c for c in df.columns if c != sub_col and "name" not in c and "rem" not in c and "s.no" not in c]
+
+        for col in target_cols:
+            for val in df[col].dropna():
+                cleaned = str(val).strip().upper()
+                if len(cleaned) >= 6 and any(ch.isdigit() for ch in cleaned) and cleaned != sub:
+                    if cleaned not in abs_list:
+                        abs_list.append(cleaned)
+
+    if not sub:
+        session["abs_msg"] = "பிழை: பாடக் குறியீடு (Subject Code) காணப்படவில்லை! Excel அல்லது பெட்டியில் உள்ளிடவும்."
+        return redirect(url_for("dashboard"))
+
+    ABSENTEES_STORE[token] = {"subject_code": sub, "absentees": abs_list}
+    session["abs_msg"] = f"தயார்! பாடம்: {sub} | மொத்த Absentees: {len(abs_list)} பேர் ({', '.join(abs_list[:5])}{'...' if len(abs_list)>5 else ''})."
+    return redirect(url_for("dashboard"))
+
+@app.route("/api/extension/get-marks")
+def api_get_marks():
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    users = load_users()
+    valid = any(info["token"] == token and info["active"] for info in users.values())
+    if not valid:
+        return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
+    if token not in MARKS_STORE:
+        return jsonify({"success": False, "error": "இந்த Token-க்கு மதிப்பெண்கள் எதுவும் பதிவேற்றப்படவில்லை."})
+    data = MARKS_STORE[token]
+    return jsonify({"success": True, "subject_code": data["subject_code"], "records": data["records"]})
+
+@app.route("/api/extension/get-absentees")
+def api_get_absentees():
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    users = load_users()
+    valid = any(info["token"] == token and info["active"] for info in users.values())
+    if not valid:
+        return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
+    if token not in ABSENTEES_STORE:
+        return jsonify({"success": False, "error": "இந்த Token-க்கு Absentees பட்டியல் எதுவும் சேமிக்கப்படவில்லை."})
+    data = ABSENTEES_STORE[token]
+    return jsonify({"success": True, "subject_code": data["subject_code"], "absentees": data["absentees"]})
+
+@app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    return redirect(url_for("login"))
 
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
