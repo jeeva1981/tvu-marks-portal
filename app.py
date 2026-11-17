@@ -124,14 +124,15 @@ DASHBOARD_HTML = """
   <title>TVU Automation Dashboard</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
-    .container { max-width: 900px; margin: auto; }
+    .container { max-width: 960px; margin: auto; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
     .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     h3 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-    label { font-weight: bold; font-size: 13px; color: #334155; display: block; margin-top: 12px; }
-    input[type="text"], input[type="file"], textarea { width: 100%; padding: 9px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
+    label { font-weight: bold; font-size: 12px; color: #334155; display: block; margin-top: 10px; }
+    input[type="text"], input[type="file"], textarea, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
     .btn-red { width: 100%; padding: 11px; background: #dc2626; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
     .msg-ok { background: #dcfce7; border-left: 4px solid #16a34a; padding: 12px; margin-top: 15px; font-size: 13px; }
@@ -165,15 +166,40 @@ DASHBOARD_HTML = """
 
       <!-- 2. Exam Attendance / Absentees Section -->
       <div class="card">
-        <h3>2. Exam Attendance (Absentees Entry)</h3>
+        <h3>2. Exam Attendance (Auto Dropdown & Absentees)</h3>
         <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
-          <label>பாடக் குறியீடு (Excel-ல் இருந்தால் காலியாக விடலாம்):</label>
-          <input type="text" name="abs_subject_code" placeholder="எ.கா: 23ULT10 (Excel-ல் இல்லையென்றால் மட்டும்)">
-          <label>வழி A: Absent மாணவர் Register Numbers (Copy-Paste):</label>
-          <textarea name="abs_text" rows="3" placeholder="20423U10117, 20424U10001 (கமா அல்லது வரிசை வாரியாக இடவும்)"></textarea>
-          <label>வழி B: அல்லது Absentees எக்செல் கோப்பு (Subject Code உடன்):</label>
+          <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> முழு விவரங்கள் கொண்ட Excel கோப்பைப் பதிவேற்றினால் கீழே உள்ள பெட்டிகளை நிரப்பத் தேவையில்லை.</p>
+          <div class="row2">
+            <div>
+              <label>Degree Type (விருப்பம்):</label>
+              <select name="degree_type">
+                <option value="">-- Excel-ல் இருந்து எடு --</option>
+                <option value="Under Graduate">Under Graduate</option>
+                <option value="Post Graduate">Post Graduate</option>
+              </select>
+            </div>
+            <div>
+              <label>Degree (எ.கா: B.Com.):</label>
+              <input type="text" name="degree" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+            </div>
+          </div>
+          <div class="row2">
+            <div>
+              <label>Discipline (எ.கா: U10):</label>
+              <input type="text" name="discipline" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+            </div>
+            <div>
+              <label>Semester (எ.கா: 01):</label>
+              <input type="text" name="semester" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+            </div>
+          </div>
+          <label>பாடக் குறியீடு (Subject Code):</label>
+          <input type="text" name="abs_subject_code" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+          <label>வழி A: Absent Register Numbers (Copy-Paste):</label>
+          <textarea name="abs_text" rows="2" placeholder="20423U10117, 20424U10001"></textarea>
+          <label>வழி B: அல்லது முழு விவரங்கள் கொண்ட Absentees Excel கோப்பு:</label>
           <input type="file" name="abs_file" accept=".xlsx,.xls">
-          <button type="submit" class="btn-red">Absentees பட்டியலைச் சேமி</button>
+          <button type="submit" class="btn-red">Absentees & Dropdown விவரங்களைச் சேமி</button>
         </form>
         {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
       </div>
@@ -287,44 +313,68 @@ def upload_absentees():
     if not u or u not in users:
         return redirect(url_for("login"))
     token = users[u]["token"]
+    degree_type = request.form.get("degree_type", "").strip()
+    degree = request.form.get("degree", "").strip()
+    discipline = request.form.get("discipline", "").strip()
+    semester = request.form.get("semester", "").strip()
     sub = request.form.get("abs_subject_code", "").strip().upper()
     abs_text = request.form.get("abs_text", "")
     abs_file = request.files.get("abs_file")
 
     abs_list = []
-    # வழி A: Text box-ல் இருந்து எடுத்தல்
     for item in abs_text.replace("\n", ",").replace(" ", ",").split(","):
         cleaned = item.strip().upper()
         if cleaned and cleaned not in abs_list:
             abs_list.append(cleaned)
 
-    # வழி B: Excel கோப்பில் இருந்து Subject Code & Register No எடுத்தல்
     if abs_file and abs_file.filename:
-        df = pd.read_excel(abs_file)
+        df = pd.read_excel(abs_file, dtype=str)
         df.columns = [str(c).strip().lower() for c in df.columns]
 
-        sub_col = next((c for c in df.columns if "sub" in c or "code" in c), None)
-        if not sub and sub_col:
-            first_sub = df[sub_col].dropna()
-            if not first_sub.empty:
-                sub = str(first_sub.iloc[0]).strip().upper()
+        def get_first_val(keywords, exact_exclude=None):
+            for col in df.columns:
+                if exact_exclude and col == exact_exclude:
+                    continue
+                if any(k in col for k in keywords):
+                    s = df[col].dropna()
+                    if not s.empty:
+                        return str(s.iloc[0]).strip()
+            return ""
+
+        if not degree_type:
+            degree_type = get_first_val(["degree type", "deg_type", "type"])
+        if not degree:
+            degree = get_first_val(["degree"], exact_exclude="degree type")
+        if not discipline:
+            discipline = get_first_val(["disc", "branch", "dept"])
+        if not semester:
+            sem_val = get_first_val(["sem"])
+            if sem_val.isdigit() and len(sem_val) == 1:
+                sem_val = "0" + sem_val
+            semester = sem_val
+        if not sub:
+            sub = get_first_val(["sub", "code"]).upper()
 
         reg_col = next((c for c in df.columns if "reg" in c), None)
-        target_cols = [reg_col] if reg_col else [c for c in df.columns if c != sub_col and "name" not in c and "rem" not in c and "s.no" not in c]
-
-        for col in target_cols:
-            for val in df[col].dropna():
+        if reg_col:
+            for val in df[reg_col].dropna():
                 cleaned = str(val).strip().upper()
-                if len(cleaned) >= 6 and any(ch.isdigit() for ch in cleaned) and cleaned != sub:
-                    if cleaned not in abs_list:
-                        abs_list.append(cleaned)
+                if cleaned and cleaned != sub and cleaned not in abs_list:
+                    abs_list.append(cleaned)
 
     if not sub:
         session["abs_msg"] = "பிழை: பாடக் குறியீடு (Subject Code) காணப்படவில்லை! Excel அல்லது பெட்டியில் உள்ளிடவும்."
         return redirect(url_for("dashboard"))
 
-    ABSENTEES_STORE[token] = {"subject_code": sub, "absentees": abs_list}
-    session["abs_msg"] = f"தயார்! பாடம்: {sub} | மொத்த Absentees: {len(abs_list)} பேர் ({', '.join(abs_list[:5])}{'...' if len(abs_list)>5 else ''})."
+    ABSENTEES_STORE[token] = {
+        "degree_type": degree_type,
+        "degree": degree,
+        "discipline": discipline,
+        "semester": semester,
+        "subject_code": sub,
+        "absentees": abs_list
+    }
+    session["abs_msg"] = f"தயார்! {degree_type} | {degree} | {discipline} | Sem {semester} | பாடம்: {sub} | Absentees: {len(abs_list)} பேர்."
     return redirect(url_for("dashboard"))
 
 @app.route("/api/extension/get-marks")
@@ -351,7 +401,15 @@ def api_get_absentees():
     if token not in ABSENTEES_STORE:
         return jsonify({"success": False, "error": "இந்த Token-க்கு Absentees பட்டியல் எதுவும் சேமிக்கப்படவில்லை."})
     data = ABSENTEES_STORE[token]
-    return jsonify({"success": True, "subject_code": data["subject_code"], "absentees": data["absentees"]})
+    return jsonify({
+        "success": True,
+        "degree_type": data.get("degree_type", ""),
+        "degree": data.get("degree", ""),
+        "discipline": data.get("discipline", ""),
+        "semester": data.get("semester", ""),
+        "subject_code": data["subject_code"],
+        "absentees": data["absentees"]
+    })
 
 @app.route("/logout")
 def logout():
