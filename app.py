@@ -16,7 +16,21 @@ ABSENTEES_STORE = {}
 def load_users():
     if not os.path.exists(USERS_FILE):
         default_users = {
-            "commerce": {
+            "commerce",def load_users():
+    default_users = {
+        "commerce": {
+            "password": "1234",
+            "dept": "Department of Commerce",
+            "token": "TVU-COMMERCE01",
+            "active": True
+        },
+        "jeeva": {
+            "password": "TvmMit@2026",
+            "dept": "jeeva - Exam Cell",
+            "token": "TVM-JEEVA01",
+            "active": True
+        }
+    }: {
                 "password": "1234",
                 "dept": "Department of Commerce",
                 "token": "TVU-COMMERCE01",
