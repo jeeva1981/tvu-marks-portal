@@ -14,9 +14,6 @@ MARKS_STORE = {}
 ABSENTEES_STORE = {}
 
 def load_users():
-    if not os.path.exists(USERS_FILE):
-        default_users = {
-            "commerce",def load_users():
     default_users = {
         "commerce": {
             "password": "1234",
@@ -26,21 +23,64 @@ def load_users():
         },
         "jeeva": {
             "password": "TvmJee@2026",
-            "dept": "jeeva - Exam Cell",
+            "dept": "Dr. Kasi Jeeva - Exam Cell",
             "token": "TVM-JEEVA01",
             "active": True
+        },
+        "tamil": {
+            "password": "TvmTam@2026",
+            "dept": "Department of Tamil",
+            "token": "TVM-TAMIL01",
+            "active": True
+        },
+        "english": {
+            "password": "TvmEng@2026",
+            "dept": "Department of English",
+            "token": "TVM-ENGLISH01",
+            "active": True
+        },
+        "bba": {
+            "password": "TvmBba@2026",
+            "dept": "Department of Business Administration",
+            "token": "TVM-BBA01",
+            "active": True
+        },
+        "maths": {
+            "password": "TvmMat@2026",
+            "dept": "Department of Mathematics",
+            "token": "TVM-MATHS01",
+            "active": True
+        },
+        "cs": {
+            "password": "TvmCs@2026",
+            "dept": "Department of Computer Science",
+            "token": "TVM-CS01",
+            "active": True
         }
-    }: {
-                "password": "1234",
-                "dept": "Department of Commerce",
-                "token": "TVU-COMMERCE01",
-                "active": True
-            }
-        }
+    }
+    saved = {}
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+        except Exception:
+            saved = {}
+
+    updated = False
+    if "mithun" in saved:
+        del saved["mithun"]
+        updated = True
+
+    for k, v in default_users.items():
+        if k not in saved:
+            saved[k] = v
+            updated = True
+
+    if updated or not os.path.exists(USERS_FILE):
         with open(USERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(default_users, f, indent=2)
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+            json.dump(saved, f, indent=2)
+
+    return saved
 
 def save_users(users):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
@@ -104,9 +144,9 @@ ADMIN_HTML = """
   <div class="card">
     <h4>புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
     <form method="POST" action="/admin/add">
-      <input type="text" name="dept" placeholder="துறை பெயர் (எ.கா: Dept of Tamil)" required>
-      <input type="text" name="username" placeholder="Username (எ.கா: tamil)" required>
-      <input type="text" name="password" placeholder="Password (எ.கா: TvmTam@2026)" required>
+      <input type="text" name="dept" placeholder="துறை பெயர் (எ.கா: Dept of Physics)" required>
+      <input type="text" name="username" placeholder="Username (எ.கா: physics)" required>
+      <input type="text" name="password" placeholder="Password (எ.கா: TvmPhy@2026)" required>
       <button type="submit">+ அனுமதி உருவாக்கு</button>
     </form>
   </div>
@@ -138,7 +178,7 @@ DASHBOARD_HTML = """
   <title>TVU Automation Dashboard</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
-    .container { max-width: 960px; margin: auto; }
+    .container { max-width: 980px; margin: auto; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
@@ -149,7 +189,7 @@ DASHBOARD_HTML = """
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
     .btn-red { width: 100%; padding: 11px; background: #dc2626; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
-    .msg-ok { background: #dcfce7; border-left: 4px solid #16a34a; padding: 12px; margin-top: 15px; font-size: 13px; }
+    .msg-ok { background: #dcfce7; border-left: 4px solid #16a34a; padding: 12px; margin-top: 15px; font-size: 13px; line-height: 1.5; }
     a { color: white; text-decoration: none; font-weight: bold; }
   </style>
 </head>
@@ -165,12 +205,12 @@ DASHBOARD_HTML = """
     </div>
 
     <div class="grid">
-      <!-- 1. Internal Marks Section -->
       <div class="card">
-        <h3>1. Internal Marks பதிவேற்றம்</h3>
+        <h3>1. Internal Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
         <form method="POST" action="/upload-marks" enctype="multipart/form-data">
-          <label>பாடக் குறியீடு (Subject Code - எ.கா: 26UACM13B):</label>
-          <input type="text" name="subject_code" placeholder="26UACM13B" required>
+          <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> எக்செல் கோப்பில் <b>Subject Code</b> நெடுவரிசை இருந்தாலோ அல்லது ஒவ்வொரு பாடத்திற்கும் தனி Sheet பெயர் (எ.கா: 23UCM11) இருந்தாலோ அனைத்தையும் ஒரே நேரத்தில் எடுத்துக்கொள்ளும்.</p>
+          <label>பாடக் குறியீடு (ஒரே ஒரு பாடம் எனில் மட்டும்):</label>
+          <input type="text" name="subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
           <label>எக்செல் கோப்பு (marks.xlsx):</label>
           <input type="file" name="file" accept=".xlsx,.xls" required>
           <button type="submit" class="btn-blue">மதிப்பெண்களைப் பதிவேற்று</button>
@@ -178,11 +218,10 @@ DASHBOARD_HTML = """
         {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
       </div>
 
-      <!-- 2. Exam Attendance / Absentees Section -->
       <div class="card">
-        <h3>2. Exam Attendance (Auto Dropdown & Absentees)</h3>
+        <h3>2. Exam Attendance (பல பாடங்கள் Absentees)</h3>
         <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
-          <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> முழு விவரங்கள் கொண்ட Excel கோப்பைப் பதிவேற்றினால் கீழே உள்ள பெட்டிகளை நிரப்பத் தேவையில்லை.</p>
+          <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> ஒரே எக்செல் கோப்பில் பல பாடங்களின் (23ULT10, 23ULE10...) Absentees விவரங்கள் இருந்தாலும் அனைத்தையும் தானாகப் பிரித்துச் சேமித்துக்கொள்ளும்.</p>
           <div class="row2">
             <div>
               <label>Degree Type (விருப்பம்):</label>
@@ -207,13 +246,13 @@ DASHBOARD_HTML = """
               <input type="text" name="semester" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
             </div>
           </div>
-          <label>பாடக் குறியீடு (Subject Code):</label>
-          <input type="text" name="abs_subject_code" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+          <label>பாடக் குறியீடு (ஒரே பாடம் எனில் மட்டும்):</label>
+          <input type="text" name="abs_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
           <label>வழி A: Absent Register Numbers (Copy-Paste):</label>
           <textarea name="abs_text" rows="2" placeholder="20423U10117, 20424U10001"></textarea>
-          <label>வழி B: அல்லது முழு விவரங்கள் கொண்ட Absentees Excel கோப்பு:</label>
+          <label>வழி B: அல்லது பல பாடங்கள் கொண்ட Absentees Excel கோப்பு:</label>
           <input type="file" name="abs_file" accept=".xlsx,.xls">
-          <button type="submit" class="btn-red">Absentees & Dropdown விவரங்களைச் சேமி</button>
+          <button type="submit" class="btn-red">அனைத்துப் பாட Absentees-ஐயும் சேமி</button>
         </form>
         {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
       </div>
@@ -226,7 +265,7 @@ DASHBOARD_HTML = """
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        u = request.form.get("username", "").strip()
+        u = request.form.get("username", "").strip().lower()
         p = request.form.get("password", "").strip()
         if u == "admin" and p == "admin123":
             session["user"] = "admin"
@@ -251,7 +290,7 @@ def admin_add():
     if session.get("user") != "admin":
         return redirect(url_for("login"))
     users = load_users()
-    u = request.form.get("username").strip()
+    u = request.form.get("username").strip().lower()
     users[u] = {
         "dept": request.form.get("dept").strip(),
         "password": request.form.get("password").strip(),
@@ -294,30 +333,50 @@ def upload_marks():
     if not u or u not in users:
         return redirect(url_for("login"))
     token = users[u]["token"]
-    sub = request.form.get("subject_code", "").strip().upper()
+    default_sub = request.form.get("subject_code", "").strip().upper()
     file = request.files.get("file")
+
     if file:
         xl = pd.ExcelFile(file)
-        sheet = sub if sub in xl.sheet_names else xl.sheet_names[0]
-        df = xl.parse(sheet)
-        df.columns = [str(c).strip().lower() for c in df.columns]
-        reg_col = next((c for c in df.columns if "reg" in c), df.columns[0])
-        att_col = next((c for c in df.columns if "att" in c), None)
-        test_col = next((c for c in df.columns if "test" in c or "cia" in c), None)
-        ass_col = next((c for c in df.columns if "ass" in c), None)
+        subjects_map = {}
 
-        records = []
-        for _, row in df.iterrows():
-            reg = str(row[reg_col]).strip()
-            if reg and reg.lower() != "nan":
-                records.append({
+        for sheet_name in xl.sheet_names:
+            if sheet_name.strip().lower() in ["instructions", "absentees", "absentees_entry"]:
+                continue
+            df = xl.parse(sheet_name)
+            if df.empty:
+                continue
+            df.columns = [str(c).strip().lower() for c in df.columns]
+
+            sub_col = next((c for c in df.columns if "sub" in c or "code" in c), None)
+            reg_col = next((c for c in df.columns if "reg" in c), None)
+            if not reg_col:
+                continue
+            att_col = next((c for c in df.columns if "att" in c), None)
+            test_col = next((c for c in df.columns if "test" in c or "cia" in c), None)
+            ass_col = next((c for c in df.columns if "ass" in c), None)
+
+            sheet_sub = default_sub if default_sub else sheet_name.strip().upper()
+
+            for _, row in df.iterrows():
+                reg = str(row[reg_col]).strip()
+                if not reg or reg.lower() == "nan":
+                    continue
+                row_sub = str(row[sub_col]).strip().upper() if (sub_col and not pd.isna(row[sub_col])) else sheet_sub
+                if not row_sub or row_sub == "NAN":
+                    row_sub = "DEFAULT"
+
+                subjects_map.setdefault(row_sub, {"subject_code": row_sub, "records": []})
+                subjects_map[row_sub]["records"].append({
                     "reg": reg,
                     "att": "" if not att_col or pd.isna(row[att_col]) else str(int(row[att_col])) if isinstance(row[att_col], float) and row[att_col].is_integer() else str(row[att_col]).strip(),
                     "test": "" if not test_col or pd.isna(row[test_col]) else str(int(row[test_col])) if isinstance(row[test_col], float) and row[test_col].is_integer() else str(row[test_col]).strip(),
                     "ass": "" if not ass_col or pd.isna(row[ass_col]) else str(int(row[ass_col])) if isinstance(row[ass_col], float) and row[ass_col].is_integer() else str(row[ass_col]).strip()
                 })
-        MARKS_STORE[token] = {"subject_code": sub, "records": records}
-        session["marks_msg"] = f"தயார்! பாடம்: {sub} | மொத்த மாணவர்கள்: {len(records)}."
+
+        MARKS_STORE[token] = subjects_map
+        summary = ", ".join([f"{k} ({len(v['records'])})" for k, v in subjects_map.items()])
+        session["marks_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} பாடங்கள் பதிவேற்றப்பட்டன: {summary}."
     return redirect(url_for("dashboard"))
 
 @app.route("/upload-absentees", methods=["POST"])
@@ -327,94 +386,128 @@ def upload_absentees():
     if not u or u not in users:
         return redirect(url_for("login"))
     token = users[u]["token"]
-    degree_type = request.form.get("degree_type", "").strip()
-    degree = request.form.get("degree", "").strip()
-    discipline = request.form.get("discipline", "").strip()
-    semester = request.form.get("semester", "").strip()
-    sub = request.form.get("abs_subject_code", "").strip().upper()
+
+    def_deg_type = request.form.get("degree_type", "").strip()
+    def_degree = request.form.get("degree", "").strip()
+    def_disc = request.form.get("discipline", "").strip()
+    def_sem = request.form.get("semester", "").strip()
+    def_sub = request.form.get("abs_subject_code", "").strip().upper()
     abs_text = request.form.get("abs_text", "")
     abs_file = request.files.get("abs_file")
 
-    abs_list = []
-    for item in abs_text.replace("\n", ",").replace(" ", ",").split(","):
-        cleaned = item.strip().upper()
-        if cleaned and cleaned not in abs_list:
-            abs_list.append(cleaned)
+    subjects_map = {}
+
+    text_regs = [x.strip().upper() for x in abs_text.replace("\n", ",").replace(" ", ",").split(",") if x.strip()]
+    if text_regs and def_sub:
+        subjects_map[def_sub] = {
+            "degree_type": def_deg_type,
+            "degree": def_degree,
+            "discipline": def_disc,
+            "semester": def_sem,
+            "subject_code": def_sub,
+            "absentees": list(dict.fromkeys(text_regs))
+        }
 
     if abs_file and abs_file.filename:
-        df = pd.read_excel(abs_file, dtype=str)
-        df.columns = [str(c).strip().lower() for c in df.columns]
+        xl = pd.ExcelFile(abs_file)
+        for sheet_name in xl.sheet_names:
+            if sheet_name.strip().lower() in ["instructions", "internal_marks", "marks"]:
+                continue
+            df = xl.parse(sheet_name, dtype=str)
+            if df.empty:
+                continue
+            df.columns = [str(c).strip().lower() for c in df.columns]
 
-        def get_first_val(keywords, exact_exclude=None):
-            for col in df.columns:
-                if exact_exclude and col == exact_exclude:
+            deg_type_col = next((c for c in df.columns if "degree type" in c or "deg_type" in c or "type" in c), None)
+            deg_col = next((c for c in df.columns if "degree" in c and c != deg_type_col), None)
+            disc_col = next((c for c in df.columns if "disc" in c or "branch" in c or "dept" in c), None)
+            sem_col = next((c for c in df.columns if "sem" in c), None)
+            sub_col = next((c for c in df.columns if "sub" in c or "code" in c), None)
+            reg_col = next((c for c in df.columns if "reg" in c), None)
+
+            if not reg_col:
+                continue
+
+            for _, row in df.iterrows():
+                reg = str(row[reg_col]).strip().upper() if not pd.isna(row[reg_col]) else ""
+                if not reg or reg == "NAN":
                     continue
-                if any(k in col for k in keywords):
-                    s = df[col].dropna()
-                    if not s.empty:
-                        return str(s.iloc[0]).strip()
-            return ""
 
-        if not degree_type:
-            degree_type = get_first_val(["degree type", "deg_type", "type"])
-        if not degree:
-            degree = get_first_val(["degree"], exact_exclude="degree type")
-        if not discipline:
-            discipline = get_first_val(["disc", "branch", "dept"])
-        if not semester:
-            sem_val = get_first_val(["sem"])
-            if sem_val.isdigit() and len(sem_val) == 1:
-                sem_val = "0" + sem_val
-            semester = sem_val
-        if not sub:
-            sub = get_first_val(["sub", "code"]).upper()
+                row_sub = str(row[sub_col]).strip().upper() if (sub_col and not pd.isna(row[sub_col])) else def_sub
+                if not row_sub or row_sub == "NAN":
+                    continue
 
-        reg_col = next((c for c in df.columns if "reg" in c), None)
-        if reg_col:
-            for val in df[reg_col].dropna():
-                cleaned = str(val).strip().upper()
-                if cleaned and cleaned != sub and cleaned not in abs_list:
-                    abs_list.append(cleaned)
+                r_deg_type = str(row[deg_type_col]).strip() if (deg_type_col and not pd.isna(row[deg_type_col])) else def_deg_type
+                r_deg = str(row[deg_col]).strip() if (deg_col and not pd.isna(row[deg_col])) else def_degree
+                r_disc = str(row[disc_col]).strip() if (disc_col and not pd.isna(row[disc_col])) else def_disc
+                r_sem = str(row[sem_col]).strip() if (sem_col and not pd.isna(row[sem_col])) else def_sem
+                if r_sem.isdigit() and len(r_sem) == 1:
+                    r_sem = "0" + r_sem
 
-    if not sub:
-        session["abs_msg"] = "பிழை: பாடக் குறியீடு (Subject Code) காணப்படவில்லை! Excel அல்லது பெட்டியில் உள்ளிடவும்."
+                if row_sub not in subjects_map:
+                    subjects_map[row_sub] = {
+                        "degree_type": r_deg_type,
+                        "degree": r_deg,
+                        "discipline": r_disc,
+                        "semester": r_sem,
+                        "subject_code": row_sub,
+                        "absentees": []
+                    }
+
+                if reg != row_sub and reg not in subjects_map[row_sub]["absentees"]:
+                    subjects_map[row_sub]["absentees"].append(reg)
+
+    if not subjects_map:
+        session["abs_msg"] = "பிழை: பாடக் குறியீடு (Subject Code) மற்றும் Register No காணப்படவில்லை!"
         return redirect(url_for("dashboard"))
 
-    ABSENTEES_STORE[token] = {
-        "degree_type": degree_type,
-        "degree": degree,
-        "discipline": discipline,
-        "semester": semester,
-        "subject_code": sub,
-        "absentees": abs_list
-    }
-    session["abs_msg"] = f"தயார்! {degree_type} | {degree} | {discipline} | Sem {semester} | பாடம்: {sub} | Absentees: {len(abs_list)} பேர்."
+    ABSENTEES_STORE[token] = subjects_map
+    summary = ", ".join([f"{k} ({len(v['absentees'])} பேர்)" for k, v in subjects_map.items()])
+    session["abs_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} பாடங்கள் சேமிக்கப்பட்டன: {summary}."
     return redirect(url_for("dashboard"))
 
-@app.route("/api/extension/get-marks")
-def api_get_marks():
+@app.route("/api/extension/list-subjects")
+def api_list_subjects():
     auth = request.headers.get("Authorization", "")
     token = auth.replace("Bearer ", "").strip()
     users = load_users()
     valid = any(info["token"] == token and info["active"] for info in users.values())
     if not valid:
         return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
-    if token not in MARKS_STORE:
+    abs_subs = list(ABSENTEES_STORE.get(token, {}).keys())
+    marks_subs = list(MARKS_STORE.get(token, {}).keys())
+    return jsonify({"success": True, "abs_subjects": abs_subs, "marks_subjects": marks_subs})
+
+@app.route("/api/extension/get-marks")
+def api_get_marks():
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    req_sub = request.args.get("subject", "").strip().upper()
+    users = load_users()
+    valid = any(info["token"] == token and info["active"] for info in users.values())
+    if not valid:
+        return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
+    sub_map = MARKS_STORE.get(token, {})
+    if not sub_map:
         return jsonify({"success": False, "error": "இந்த Token-க்கு மதிப்பெண்கள் எதுவும் பதிவேற்றப்படவில்லை."})
-    data = MARKS_STORE[token]
+    chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
+    data = sub_map[chosen]
     return jsonify({"success": True, "subject_code": data["subject_code"], "records": data["records"]})
 
 @app.route("/api/extension/get-absentees")
 def api_get_absentees():
     auth = request.headers.get("Authorization", "")
     token = auth.replace("Bearer ", "").strip()
+    req_sub = request.args.get("subject", "").strip().upper()
     users = load_users()
     valid = any(info["token"] == token and info["active"] for info in users.values())
     if not valid:
         return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
-    if token not in ABSENTEES_STORE:
+    sub_map = ABSENTEES_STORE.get(token, {})
+    if not sub_map:
         return jsonify({"success": False, "error": "இந்த Token-க்கு Absentees பட்டியல் எதுவும் சேமிக்கப்படவில்லை."})
-    data = ABSENTEES_STORE[token]
+    chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
+    data = sub_map[chosen]
     return jsonify({
         "success": True,
         "degree_type": data.get("degree_type", ""),
