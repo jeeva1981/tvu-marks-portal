@@ -135,29 +135,30 @@ def find_user_by_token(token):
 
 LOGIN_HTML = """
 <!DOCTYPE html>
-<html lang="ta">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>TVU Automation Portal - Login</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .box { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 360px; }
-    h2 { color: #1e3a8a; text-align: center; margin-top: 0; }
-    label { font-weight: bold; font-size: 13px; color: #334155; display: block; margin-top: 12px; }
-    input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
-    button { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 15px; margin-top: 20px; cursor: pointer; }
-    .err { color: #dc2626; font-size: 13px; text-align: center; margin-top: 10px; }
+    .box { background: white; padding: 32px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 360px; }
+    h2 { color: #1e3a8a; text-align: center; margin-top: 0; margin-bottom: 20px; }
+    label { font-weight: bold; font-size: 13px; color: #334155; display: block; margin-top: 14px; }
+    input { width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+    button { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 15px; margin-top: 22px; cursor: pointer; }
+    button:hover { background: #172554; }
+    .err { color: #dc2626; font-size: 13px; text-align: center; margin-top: 12px; font-weight: bold; }
   </style>
 </head>
 <body>
   <div class="box">
     <h2>TVU Automation Portal</h2>
     <form method="POST">
-      <label>பயனர் பெயர் (Username):</label>
-      <input type="text" name="username" required>
-      <label>கடவுச்சொல் (Password):</label>
-      <input type="password" name="password" required>
-      <button type="submit">உள்நுழைக (Login)</button>
+      <label>Username</label>
+      <input type="text" name="username" placeholder="Enter Username" required>
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Enter Password" required>
+      <button type="submit">Login</button>
       {% if error %}<div class="err">{{ error }}</div>{% endif %}
     </form>
   </div>
@@ -167,7 +168,7 @@ LOGIN_HTML = """
 
 ADMIN_HTML = """
 <!DOCTYPE html>
-<html lang="ta">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Super Admin - TVU Portal</title>
@@ -194,16 +195,16 @@ ADMIN_HTML = """
     <h3>Super Admin Control Panel & Live Usage Monitor</h3>
     <div>
       <a href="/admin" style="margin-right:15px;">↻ Refresh</a>
-      <a href="/logout">வெளியேறு (Logout)</a>
+      <a href="/logout">Logout</a>
     </div>
   </div>
 
   {% if admin_msg %}<div class="msg">{{ admin_msg }}</div>{% endif %}
 
   <div class="card">
-    <h4 style="margin-top:0; color:#1e3a8a;">துறைகளின் Username & Password மாற்றும் பகுதி</h4>
+    <h4 style="margin-top:0; color:#1e3a8a;">Manage Department Credentials (Username & Password)</h4>
     <table>
-      <tr><th>துறை</th><th>தற்போதைய Username & Password மாற்றம்</th><th>Extension Token</th><th>நிலை</th><th>நடவடிக்கை</th></tr>
+      <tr><th>Department</th><th>Update Username & Password</th><th>Extension Token</th><th>Status</th><th>Action</th></tr>
       {% for u, info in users.items() %}
       <tr>
         <td>{{ info.dept }}</td>
@@ -211,14 +212,14 @@ ADMIN_HTML = """
           <form method="POST" action="/admin/update/{{ u }}" style="display:flex; gap:5px; align-items:center; margin:0;">
             <input type="text" name="new_username" value="{{ u }}" style="width:110px; font-weight:bold;" required>
             <input type="text" name="new_password" value="{{ info.password }}" style="width:130px;" required>
-            <button type="submit" class="btn-edit">மாற்று (Save)</button>
+            <button type="submit" class="btn-edit">Save</button>
           </form>
         </td>
         <td style="color:#b91c1c; font-weight:bold;">{{ info.token }}</td>
         <td>{{ "Active" if info.active else "Blocked" }}</td>
         <td>
           <a href="/admin/toggle/{{ u }}" style="color:#1e3a8a; margin-right:10px;">{{ "Block" if info.active else "Allow" }}</a>
-          <a href="/admin/delete/{{ u }}" style="color:#dc2626;" onclick="return confirm('இந்தக் கணக்கை நீக்க வேண்டுமா?')">நீக்கு</a>
+          <a href="/admin/delete/{{ u }}" style="color:#dc2626;" onclick="return confirm('Delete this user account?')">Delete</a>
         </td>
       </tr>
       {% endfor %}
@@ -226,22 +227,22 @@ ADMIN_HTML = """
   </div>
 
   <div class="card">
-    <h4 style="margin-top:0;">புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
+    <h4 style="margin-top:0;">Add New Department Account</h4>
     <form method="POST" action="/admin/add">
-      <input type="text" name="dept" placeholder="துறை பெயர் (எ.கா: Dept of Physics)" required>
-      <input type="text" name="username" placeholder="Username (எ.கா: physics)" required>
-      <input type="text" name="password" placeholder="Password (எ.கா: TvmPhy@2026)" required>
-      <button type="submit">+ அனுமதி உருவாக்கு</button>
+      <input type="text" name="dept" placeholder="Department Name (e.g., Dept of Physics)" required>
+      <input type="text" name="username" placeholder="Username (e.g., physics)" required>
+      <input type="text" name="password" placeholder="Password (e.g., TvmPhy@2026)" required>
+      <button type="submit">+ Create User</button>
     </form>
   </div>
 
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h4 style="margin:0; color:#1e3a8a;">யார் யாரெல்லாம் பயன்படுத்துகிறார்கள்? (நேரடிப் பயன்பாட்டுப் பதிவு - {{ logs|length }})</h4>
-      <a href="/admin/clear-logs" style="color:#dc2626; font-size:12px;">பதிவுகளை அழி (Clear Logs)</a>
+      <h4 style="margin:0; color:#1e3a8a;">Live Usage Activity Logs ({{ logs|length }})</h4>
+      <a href="/admin/clear-logs" style="color:#dc2626; font-size:12px;">Clear Logs</a>
     </div>
     <table>
-      <tr><th>நேரம் (IST)</th><th>துறை (Department)</th><th>பயனர்</th><th>செயல்பாடு (Action)</th><th>விவரம் (Details)</th></tr>
+      <tr><th>Time (IST)</th><th>Department</th><th>Username</th><th>Action</th><th>Details</th></tr>
       {% for log in logs %}
       <tr>
         <td>{{ log.time }}</td>
@@ -255,7 +256,7 @@ ADMIN_HTML = """
         <td>{{ log.details }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="5" style="text-align:center; color:#64748b;">இதுவரை எந்தப் பயன்பாட்டுப் பதிவும் இல்லை.</td></tr>
+      <tr><td colspan="5" style="text-align:center; color:#64748b;">No activity recorded yet.</td></tr>
       {% endfor %}
     </table>
   </div>
@@ -265,7 +266,7 @@ ADMIN_HTML = """
 
 DASHBOARD_HTML = """
 <!DOCTYPE html>
-<html lang="ta">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>TVU Automation Dashboard</title>
@@ -275,16 +276,15 @@ DASHBOARD_HTML = """
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; }
     .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
-    .menu-btn { padding: 18px 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.12); transition: transform 0.15s, opacity 0.15s; text-align: center; }
+    .menu-btn { padding: 20px 12px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.12); transition: transform 0.15s, opacity 0.15s; text-align: center; }
     .menu-btn:hover { transform: translateY(-2px); opacity: 0.95; }
-    .menu-btn span { display: block; font-size: 11px; font-weight: normal; margin-top: 5px; opacity: 0.9; }
-    .btn-tab-blue { background: #1e3a8a; }
     .btn-tab-red { background: #dc2626; }
+    .btn-tab-blue { background: #1e3a8a; }
     .btn-tab-purple { background: #7c3aed; }
     .card { background: white; padding: 22px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-top: 20px; display: none; }
     .card.active { display: block; }
     .card-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; }
-    .card-head h3 { margin: 0; color: #1e3a8a; }
+    .card-head h3 { margin: 0; }
     .tpl-btn { background: #0f766e; color: white !important; padding: 7px 13px; border-radius: 5px; font-size: 12px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .tpl-btn:hover { background: #115e59; }
     .upload-box { background: #f8fafc; border: 1px dashed #94a3b8; padding: 12px; border-radius: 6px; margin-top: 10px; }
@@ -304,148 +304,146 @@ DASHBOARD_HTML = """
   <div class="container">
     <div class="header">
       <div><b>{{ dept }}</b> ({{ username }})</div>
-      <a href="/logout">வெளியேறு (Logout)</a>
+      <a href="/logout">Logout</a>
     </div>
 
     <div class="token-bar">
-      உங்கள் Extension Token: <span style="color:#dc2626;">{{ token }}</span>
+      Extension Token: <span style="color:#dc2626;">{{ token }}</span>
     </div>
 
+    <!-- 3 Clean English Buttons -->
     <div class="menu-grid">
-      <button type="button" class="menu-btn btn-tab-blue" onclick="openSection('marksSection')">
-        1. Internal Marks Entry
-        <span>அகமதிப்பீட்டு மதிப்பெண்கள்</span>
-      </button>
       <button type="button" class="menu-btn btn-tab-red" onclick="openSection('absSection')">
-        2. Exam Attendance Entry
-        <span>தேர்வு Absentees பட்டியல்</span>
+        1. Attendance Entry
+      </button>
+      <button type="button" class="menu-btn btn-tab-blue" onclick="openSection('marksSection')">
+        2. Internal Mark Entry
       </button>
       <button type="button" class="menu-btn btn-tab-purple" onclick="openSection('pracSection')">
-        3. External Practical Marks
-        <span>செய்முறைத் தேர்வு மதிப்பெண்கள்</span>
+        3. Practical Mark Entry
       </button>
     </div>
 
-    <!-- 1. Internal Marks Section -->
-    <div id="marksSection" class="card {% if marks_msg %}active{% endif %}">
-      <div class="card-head">
-        <h3>1. Internal Marks பதிவேற்றம்</h3>
-        <a href="/download-template/marks" class="tpl-btn">📥 மாதிரி Excel Template பதிவிறக்கம்</a>
-      </div>
-      <form method="POST" action="/upload-marks" enctype="multipart/form-data">
-        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> Template-ல் ஒவ்வொரு Sheet-ன் பெயரையும் அந்தந்த <b>Subject Code</b> (உதாரணம்: <code>23UCM11</code>, <code>23UCM12</code>) ஆக வைத்துப் பதிவேற்றவும்.</p>
-        <label>பாடக் குறியீடு (ஒரே ஒரு பாடம் எனில் மட்டும்):</label>
-        <input type="text" name="subject_code" placeholder="ஒவ்வொரு Sheet-லும் Subject Code பெயர் இருந்தால் காலியாக விடலாம்">
-        <div class="upload-box">
-          <div class="upload-row">
-            <label style="margin:0;">எக்செல் கோப்பு (TVU_Internal_Marks_Template.xlsx):</label>
-            <a href="/download-template/marks" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
-          </div>
-          <input type="file" name="file" accept=".xlsx,.xls" required>
-        </div>
-        <button type="submit" class="btn-blue">மதிப்பெண்களைப் பதிவேற்று</button>
-      </form>
-      {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
-    </div>
-
-    <!-- 2. Exam Attendance / Absentees Section -->
+    <!-- 1. Attendance Entry Section -->
     <div id="absSection" class="card {% if abs_msg %}active{% endif %}">
       <div class="card-head">
-        <h3 style="color:#dc2626;">2. Exam Attendance (Absentees Entry)</h3>
-        <a href="/download-template/absentees" class="tpl-btn">📥 மாதிரி Excel Template பதிவிறக்கம்</a>
+        <h3 style="color:#dc2626;">1. Attendance Entry (Absentees List)</h3>
+        <a href="/download-template/absentees" class="tpl-btn">📥 Download Model Excel Template</a>
       </div>
       <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
-        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> ஒரே எக்செல் கோப்பில் பல பாடங்களின் (23ULT10, 23ULE10...) Absentees விவரங்களை அடுக்கி வைத்துப் பதிவேற்றலாம்.</p>
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>Note:</b> Upload a single Excel file containing Absentees for multiple subjects (e.g., 23ULT10, 23ULE10) placed one below another.</p>
         <div class="row2">
           <div>
-            <label>Degree Type (விருப்பம்):</label>
+            <label>Degree Type (Optional):</label>
             <select name="degree_type">
-              <option value="">-- Excel-ல் இருந்து எடு --</option>
+              <option value="">-- Read from Excel --</option>
               <option value="Under Graduate">Under Graduate</option>
               <option value="Post Graduate">Post Graduate</option>
             </select>
           </div>
           <div>
-            <label>Degree (எ.கா: B.Com.):</label>
-            <input type="text" name="degree" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+            <label>Degree (e.g., B.Com.):</label>
+            <input type="text" name="degree" placeholder="Leave blank if included in Excel">
           </div>
         </div>
         <div class="row2">
           <div>
-            <label>Discipline (எ.கா: U10):</label>
-            <input type="text" name="discipline" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+            <label>Discipline (e.g., U10):</label>
+            <input type="text" name="discipline" placeholder="Leave blank if included in Excel">
           </div>
           <div>
-            <label>Semester (எ.கா: 01):</label>
-            <input type="text" name="semester" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+            <label>Semester (e.g., 01):</label>
+            <input type="text" name="semester" placeholder="Leave blank if included in Excel">
           </div>
         </div>
-        <label>பாடக் குறியீடு (ஒரே பாடம் எனில் மட்டும்):</label>
-        <input type="text" name="abs_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
-        <label>வழி A: Absent Register Numbers (Copy-Paste):</label>
+        <label>Subject Code (Only for single subject entry):</label>
+        <input type="text" name="abs_subject_code" placeholder="Leave blank if multiple subjects are in Excel">
+        <label>Option A: Paste Absent Register Numbers (Comma separated):</label>
         <textarea name="abs_text" rows="2" placeholder="20423U10117, 20424U10001"></textarea>
         <div class="upload-box">
           <div class="upload-row">
-            <label style="margin:0;">வழி B: பல பாடங்கள் கொண்ட Absentees Excel கோப்பு:</label>
+            <label style="margin:0;">Option B: Upload Absentees Excel File (.xlsx):</label>
             <a href="/download-template/absentees" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
           </div>
           <input type="file" name="abs_file" accept=".xlsx,.xls">
         </div>
-        <button type="submit" class="btn-red">அனைத்துப் பாட Absentees-ஐயும் சேமி</button>
+        <button type="submit" class="btn-red">Save Attendance Absentees</button>
       </form>
       {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
     </div>
 
-    <!-- 3. External Practical Marks Section -->
+    <!-- 2. Internal Mark Entry Section -->
+    <div id="marksSection" class="card {% if marks_msg %}active{% endif %}">
+      <div class="card-head">
+        <h3 style="color:#1e3a8a;">2. Internal Mark Entry</h3>
+        <a href="/download-template/marks" class="tpl-btn">📥 Download Model Excel Template</a>
+      </div>
+      <form method="POST" action="/upload-marks" enctype="multipart/form-data">
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>Note:</b> Name each sheet tab in the Excel template with its respective <b>Subject Code</b> (e.g., <code>23UCM11</code>, <code>23UCM12</code>).</p>
+        <label>Subject Code (Only if uploading a single sheet without subject name):</label>
+        <input type="text" name="subject_code" placeholder="Leave blank if sheet names are Subject Codes">
+        <div class="upload-box">
+          <div class="upload-row">
+            <label style="margin:0;">Upload Internal Marks Excel File (.xlsx):</label>
+            <a href="/download-template/marks" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
+          </div>
+          <input type="file" name="file" accept=".xlsx,.xls" required>
+        </div>
+        <button type="submit" class="btn-blue">Upload Internal Marks</button>
+      </form>
+      {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
+    </div>
+
+    <!-- 3. Practical Mark Entry Section -->
     <div id="pracSection" class="card {% if prac_msg %}active{% endif %}">
       <div class="card-head">
-        <h3 style="color:#7c3aed;">3. External Practical Marks பதிவேற்றம்</h3>
-        <a href="/download-template/practical" class="tpl-btn">📥 மாதிரி Excel Template பதிவிறக்கம்</a>
+        <h3 style="color:#7c3aed;">3. Practical Mark Entry</h3>
+        <a href="/download-template/practical" class="tpl-btn">📥 Download Model Excel Template</a>
       </div>
       <form method="POST" action="/upload-practical" enctype="multipart/form-data">
-        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> Template-ல் <b>External Mark</b> (எ.கா: 70, 65) அல்லது Absent எனில் <b>AAA</b> என உள்ளிட்டுப் பதிவேற்றவும்.</p>
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>Note:</b> Enter <b>External Mark</b> (e.g., 70, 65) or <b>AAA</b> for Absent in the template and upload below.</p>
         <div class="row3">
           <div>
             <label>Degree Type:</label>
             <select name="degree_type">
-              <option value="">-- Excel-ல் இருந்து --</option>
+              <option value="">-- Read from Excel --</option>
               <option value="Under Graduate">Under Graduate</option>
               <option value="Post Graduate">Post Graduate</option>
             </select>
           </div>
           <div>
-            <label>Degree (எ.கா: B.Sc.):</label>
-            <input type="text" name="degree" placeholder="Excel-ல் இருந்தால் விடலாம்">
+            <label>Degree (e.g., B.Sc.):</label>
+            <input type="text" name="degree" placeholder="Leave blank if in Excel">
           </div>
           <div>
-            <label>Discipline (எ.கா: U18):</label>
-            <input type="text" name="discipline" placeholder="Excel-ல் இருந்தால் விடலாம்">
+            <label>Discipline (e.g., U18):</label>
+            <input type="text" name="discipline" placeholder="Leave blank if in Excel">
           </div>
         </div>
         <div class="row3">
           <div>
-            <label>Semester (எ.கா: 01):</label>
-            <input type="text" name="semester" placeholder="Excel-ல் இருந்தால் விடலாம்">
+            <label>Semester (e.g., 01):</label>
+            <input type="text" name="semester" placeholder="Leave blank if in Excel">
           </div>
           <div>
-            <label>Regulation (எ.கா: 2026):</label>
-            <input type="text" name="regulation" placeholder="Excel-ல் இருந்தால் விடலாம்">
+            <label>Regulation (e.g., 2026):</label>
+            <input type="text" name="regulation" placeholder="Leave blank if in Excel">
           </div>
           <div>
             <label>Exam Type:</label>
             <input type="text" name="exam_type" value="External Exam">
           </div>
         </div>
-        <label>பாடக் குறியீடு (ஒரே பாடம் எனில் மட்டும்):</label>
-        <input type="text" name="prac_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
+        <label>Subject Code (Only for single subject entry):</label>
+        <input type="text" name="prac_subject_code" placeholder="Leave blank if multiple subjects are in Excel">
         <div class="upload-box">
           <div class="upload-row">
-            <label style="margin:0;">Practical Marks Excel கோப்பு:</label>
+            <label style="margin:0;">Upload Practical Marks Excel File (.xlsx):</label>
             <a href="/download-template/practical" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
           </div>
           <input type="file" name="prac_file" accept=".xlsx,.xls" required>
         </div>
-        <button type="submit" class="btn-purple">Practical மதிப்பெண்களைப் பதிவேற்று</button>
+        <button type="submit" class="btn-purple">Upload Practical Marks</button>
       </form>
       {% if prac_msg %}<div class="msg-ok">{{ prac_msg }}</div>{% endif %}
     </div>
@@ -453,8 +451,8 @@ DASHBOARD_HTML = """
 
   <script>
     function openSection(sectionId) {
-      document.getElementById('marksSection').classList.remove('active');
       document.getElementById('absSection').classList.remove('active');
+      document.getElementById('marksSection').classList.remove('active');
       document.getElementById('pracSection').classList.remove('active');
       document.getElementById(sectionId).classList.add('active');
     }
@@ -521,11 +519,11 @@ def login():
         users = load_users()
         if u in users and users[u]["password"] == p:
             if not users[u]["active"]:
-                return render_template_string(LOGIN_HTML, error="உங்கள் கணக்கு தற்காலிகமாக நிறுத்தப்பட்டுள்ளது.")
+                return render_template_string(LOGIN_HTML, error="Your account has been temporarily blocked.")
             session["user"] = u
-            log_activity(u, users[u]["dept"], "Portal Login", "இணையதளத்தில் உள்நுழைந்தார்")
+            log_activity(u, users[u]["dept"], "Portal Login", "Logged into web portal")
             return redirect(url_for("dashboard"))
-        return render_template_string(LOGIN_HTML, error="தவறான Username அல்லது Password!")
+        return render_template_string(LOGIN_HTML, error="Invalid Username or Password!")
     return render_template_string(LOGIN_HTML, error=None)
 
 @app.route("/admin")
@@ -551,7 +549,7 @@ def admin_update(old_username):
         info["password"] = new_p
         users[new_u] = info
         save_users(users)
-        session["admin_msg"] = f"வெற்றி! '{old_username}' கணக்கு '{new_u}' (Password: {new_p}) என மாற்றப்பட்டது."
+        session["admin_msg"] = f"Updated '{old_username}' to '{new_u}' (Password: {new_p})."
     return redirect(url_for("admin_panel"))
 
 @app.route("/admin/delete/<username>")
@@ -562,7 +560,7 @@ def admin_delete(username):
     if username in users:
         del users[username]
         save_users(users)
-        session["admin_msg"] = f"'{username}' கணக்கு நீக்கப்பட்டது."
+        session["admin_msg"] = f"Deleted account '{username}'."
     return redirect(url_for("admin_panel"))
 
 @app.route("/admin/clear-logs")
@@ -586,7 +584,7 @@ def admin_add():
         "active": True
     }
     save_users(users)
-    session["admin_msg"] = f"புதிய கணக்கு '{u}' உருவாக்கப்பட்டது."
+    session["admin_msg"] = f"Created new user '{u}'."
     return redirect(url_for("admin_panel"))
 
 @app.route("/admin/toggle/<username>")
@@ -666,8 +664,8 @@ def upload_marks():
 
         MARKS_STORE[token] = subjects_map
         summary = ", ".join([f"{k} ({len(v['records'])})" for k, v in subjects_map.items()])
-        log_activity(u, users[u]["dept"], "Marks Upload", f"{len(subjects_map)} பாடங்கள்: {summary}")
-        session["marks_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} பாடங்கள் பதிவேற்றப்பட்டன: {summary}."
+        log_activity(u, users[u]["dept"], "Marks Upload", f"{len(subjects_map)} subjects: {summary}")
+        session["marks_msg"] = f"Ready! Uploaded {len(subjects_map)} subjects: {summary}."
     return redirect(url_for("dashboard"))
 
 @app.route("/upload-absentees", methods=["POST"])
@@ -749,13 +747,13 @@ def upload_absentees():
                     subjects_map[row_sub]["absentees"].append(reg)
 
     if not subjects_map:
-        session["abs_msg"] = "பிழை: பாடக் குறியீடு (Subject Code) மற்றும் Register No காணப்படவில்லை!"
+        session["abs_msg"] = "Error: Subject Code and Register No not found!"
         return redirect(url_for("dashboard"))
 
     ABSENTEES_STORE[token] = subjects_map
-    summary = ", ".join([f"{k} ({len(v['absentees'])} பேர்)" for k, v in subjects_map.items()])
-    log_activity(u, users[u]["dept"], "Absentees Upload", f"{len(subjects_map)} பாடங்கள்: {summary}")
-    session["abs_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} பாடங்கள் சேமிக்கப்பட்டன: {summary}."
+    summary = ", ".join([f"{k} ({len(v['absentees'])} absentees)" for k, v in subjects_map.items()])
+    log_activity(u, users[u]["dept"], "Absentees Upload", f"{len(subjects_map)} subjects: {summary}")
+    session["abs_msg"] = f"Ready! Saved {len(subjects_map)} subjects: {summary}."
     return redirect(url_for("dashboard"))
 
 @app.route("/upload-practical", methods=["POST"])
@@ -840,13 +838,13 @@ def upload_practical():
                 subjects_map[row_sub]["records"].append({"reg": reg, "mark": mark})
 
     if not subjects_map:
-        session["prac_msg"] = "பிழை: Register No மற்றும் External Mark நெடுவரிசைகள் காணப்படவில்லை!"
+        session["prac_msg"] = "Error: Register No and External Mark columns not found!"
         return redirect(url_for("dashboard"))
 
     PRACTICAL_STORE[token] = subjects_map
-    summary = ", ".join([f"{k} ({len(v['records'])} பேர்)" for k, v in subjects_map.items()])
-    log_activity(u, users[u]["dept"], "Practical Upload", f"{len(subjects_map)} பாடங்கள்: {summary}")
-    session["prac_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} Practical பாடங்கள் சேமிக்கப்பட்டன: {summary}."
+    summary = ", ".join([f"{k} ({len(v['records'])} students)" for k, v in subjects_map.items()])
+    log_activity(u, users[u]["dept"], "Practical Upload", f"{len(subjects_map)} subjects: {summary}")
+    session["prac_msg"] = f"Ready! Saved {len(subjects_map)} Practical subjects: {summary}."
     return redirect(url_for("dashboard"))
 
 @app.route("/api/extension/list-subjects")
@@ -879,7 +877,7 @@ def api_get_marks():
         return jsonify({"success": False, "error": "No Internal Marks uploaded for this token."})
     chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
     data = sub_map[chosen]
-    log_activity(u, info["dept"], "Extension Fill Marks", f"பாடம்: {data['subject_code']} ({len(data['records'])} மாணவர்கள்)")
+    log_activity(u, info["dept"], "Extension Fill Marks", f"Subject: {data['subject_code']} ({len(data['records'])} students)")
     return jsonify({"success": True, "subject_code": data["subject_code"], "records": data["records"]})
 
 @app.route("/api/extension/get-absentees")
@@ -895,7 +893,7 @@ def api_get_absentees():
         return jsonify({"success": False, "error": "No Absentees list uploaded for this token."})
     chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
     data = sub_map[chosen]
-    log_activity(u, info["dept"], "Extension Mark Absentees", f"பாடம்: {data['subject_code']} ({len(data['absentees'])} பேர்)")
+    log_activity(u, info["dept"], "Extension Mark Absentees", f"Subject: {data['subject_code']} ({len(data['absentees'])} absentees)")
     return jsonify({
         "success": True,
         "degree_type": data.get("degree_type", ""),
@@ -919,7 +917,7 @@ def api_get_practical():
         return jsonify({"success": False, "error": "No Practical Marks uploaded for this token."})
     chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
     data = sub_map[chosen]
-    log_activity(u, info["dept"], "Extension Practical Marks", f"பாடம்: {data['subject_code']} ({len(data['records'])} மாணவர்கள்)")
+    log_activity(u, info["dept"], "Extension Practical Marks", f"Subject: {data['subject_code']} ({len(data['records'])} students)")
     return jsonify({
         "success": True,
         "degree_type": data.get("degree_type", ""),
