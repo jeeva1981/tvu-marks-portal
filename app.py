@@ -8,7 +8,7 @@ from flask import Flask, request, render_template_string, redirect, url_for, ses
 from flask_cors import CORS
 
 app = Flask(__name__)
-app.secret_key = "tvu_super_secret_key_2026"
+app.secret_key = "college_super_secret_key_2026"
 CORS(app)
 
 USERS_FILE = "users.json"
@@ -138,7 +138,7 @@ LOGIN_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>TVU Automation Portal - Login</title>
+  <title>College Automation Portal - Login</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
     .box { background: white; padding: 32px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 360px; }
@@ -152,7 +152,7 @@ LOGIN_HTML = """
 </head>
 <body>
   <div class="box">
-    <h2>TVU Automation Portal</h2>
+    <h2>College Automation Portal</h2>
     <form method="POST">
       <label>Username</label>
       <input type="text" name="username" placeholder="Enter Username" required>
@@ -171,7 +171,7 @@ ADMIN_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Super Admin - TVU Portal</title>
+  <title>College Automation Portal - Super Admin</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 25px; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
@@ -192,7 +192,7 @@ ADMIN_HTML = """
 </head>
 <body>
   <div class="header">
-    <h3>Super Admin Control Panel & Live Usage Monitor</h3>
+    <h3>College Automation Portal - Super Admin & Live Usage Monitor</h3>
     <div>
       <a href="/admin" style="margin-right:15px;">↻ Refresh</a>
       <a href="/logout">Logout</a>
@@ -269,7 +269,7 @@ DASHBOARD_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>TVU Automation Dashboard</title>
+  <title>College Automation Portal - Dashboard</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; margin: 0; }
     .container { max-width: 820px; margin: 20px auto; }
@@ -311,7 +311,6 @@ DASHBOARD_HTML = """
       Extension Token: <span style="color:#dc2626;">{{ token }}</span>
     </div>
 
-    <!-- 3 Clean English Buttons -->
     <div class="menu-grid">
       <button type="button" class="menu-btn btn-tab-red" onclick="openSection('absSection')">
         1. Attendance Entry
@@ -482,7 +481,7 @@ def download_template(tpl_type):
             }
             for sub_name, rows in sample_sheets.items():
                 pd.DataFrame(rows).to_excel(writer, sheet_name=sub_name, index=False)
-            filename = "TVU_Internal_Marks_Template.xlsx"
+            filename = "College_Internal_Marks_Template.xlsx"
         elif tpl_type == "absentees":
             df = pd.DataFrame([
                 {"Degree Type": "Under Graduate", "Degree": "B.B.A.", "Discipline": "BUSINESS ADMINISTRATION", "Semester": "02", "Subject Code": "23ULE20", "Register No": "20423U08032"},
@@ -490,7 +489,7 @@ def download_template(tpl_type):
                 {"Degree Type": "Under Graduate", "Degree": "B.Com.", "Discipline": "U10", "Semester": "01", "Subject Code": "23ULT10", "Register No": "20424U10005"},
             ])
             df.to_excel(writer, sheet_name="Absentees_Entry", index=False)
-            filename = "TVU_Absentees_Template.xlsx"
+            filename = "College_Absentees_Template.xlsx"
         else:
             df = pd.DataFrame([
                 {"Degree Type": "Under Graduate", "Degree": "B.Sc.", "Discipline": "U18", "Semester": "01", "Regulation": "2026", "Exam Type": "External Exam", "Subject Code": "26UPCS14", "Register No": "20426U18001", "External Mark": "70"},
@@ -498,7 +497,7 @@ def download_template(tpl_type):
                 {"Degree Type": "Under Graduate", "Degree": "B.Sc.", "Discipline": "U18", "Semester": "01", "Regulation": "2026", "Exam Type": "External Exam", "Subject Code": "26UPCS14", "Register No": "20426U18003", "External Mark": "AAA"},
             ])
             df.to_excel(writer, sheet_name="Practical_Marks", index=False)
-            filename = "TVU_Practical_Marks_Template.xlsx"
+            filename = "College_Practical_Marks_Template.xlsx"
 
     output.seek(0)
     return send_file(
