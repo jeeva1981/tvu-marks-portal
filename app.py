@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+from datetime import datetime, timezone, timedelta
 import pandas as pd
 from flask import Flask, request, render_template_string, redirect, url_for, session, jsonify
 from flask_cors import CORS
@@ -10,8 +11,42 @@ app.secret_key = "tvu_super_secret_key_2026"
 CORS(app)
 
 USERS_FILE = "users.json"
+LOGS_FILE = "activity_logs.json"
 MARKS_STORE = {}
 ABSENTEES_STORE = {}
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def now_ist():
+    return datetime.now(IST).strftime("%d-%m-%Y %I:%M:%S %p")
+
+def log_activity(user, dept, action, details):
+    logs = []
+    if os.path.exists(LOGS_FILE):
+        try:
+            with open(LOGS_FILE, "r", encoding="utf-8") as f:
+                logs = json.load(f)
+        except Exception:
+            logs = []
+    logs.insert(0, {
+        "time": now_ist(),
+        "user": user,
+        "dept": dept,
+        "action": action,
+        "details": details
+    })
+    logs = logs[:250]  # கடைசி 250 செயல்பாடுகளைச் சேமித்து வைக்கும்
+    with open(LOGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(logs, f, indent=2, ensure_ascii=False)
+
+def get_logs():
+    if os.path.exists(LOGS_FILE):
+        try:
+            with open(LOGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
 
 def load_users():
     default_users = {
@@ -86,6 +121,13 @@ def save_users(users):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, indent=2)
 
+def find_user_by_token(token):
+    users = load_users()
+    for u, info in users.items():
+        if info["token"] == token and info["active"]:
+            return u, info
+    return None, None
+
 LOGIN_HTML = """
 <!DOCTYPE html>
 <html lang="ta">
@@ -130,19 +172,54 @@ ADMIN_HTML = """
     .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-top: 20px; }
     input { padding: 8px; margin-right: 10px; border: 1px solid #cbd5e1; border-radius: 4px; }
     button { padding: 8px 15px; background: #16a34a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
     th, td { padding: 10px; border: 1px solid #e2e8f0; text-align: left; }
     th { background: #f1f5f9; }
     a { color: white; text-decoration: none; font-weight: bold; }
+    .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+    .b-login { background: #2563eb; }
+    .b-upload { background: #16a34a; }
+    .b-ext { background: #dc2626; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h3>Super Admin Control Panel</h3>
-    <a href="/logout">வெளியேறு (Logout)</a>
+    <h3>Super Admin Control Panel & Live Usage Monitor</h3>
+    <div>
+      <a href="/admin" style="margin-right:15px;">↻ Refresh</a>
+      <a href="/logout">வெளியேறு (Logout)</a>
+    </div>
   </div>
+
+  <!-- 1. Live Activity Logs -->
   <div class="card">
-    <h4>புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h4 style="margin:0; color:#1e3a8a;">யார் யாரெல்லாம் பயன்படுத்துகிறார்கள்? (நேரடிப் பயன்பாட்டுப் பதிவு - {{ logs|length }})</h4>
+      <a href="/admin/clear-logs" style="color:#dc2626; font-size:12px;">பதிவுகளை அழி (Clear Logs)</a>
+    </div>
+    <table>
+      <tr><th>நேரம் (IST)</th><th>துறை (Department)</th><th>பயனர்</th><th>செயல்பாடு (Action)</th><th>விவரம் (Details)</th></tr>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.time }}</td>
+        <td><b>{{ log.dept }}</b></td>
+        <td>{{ log.user }}</td>
+        <td>
+          {% if 'Login' in log.action %}<span class="badge b-login">{{ log.action }}</span>
+          {% elif 'Upload' in log.action %}<span class="badge b-upload">{{ log.action }}</span>
+          {% else %}<span class="badge b-ext">{{ log.action }}</span>{% endif %}
+        </td>
+        <td>{{ log.details }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="text-align:center; color:#64748b;">இதுவரை எந்தப் பயன்பாட்டுப் பதிவும் இல்லை.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <!-- 2. Create New Account -->
+  <div class="card">
+    <h4 style="margin-top:0;">புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
     <form method="POST" action="/admin/add">
       <input type="text" name="dept" placeholder="துறை பெயர் (எ.கா: Dept of Physics)" required>
       <input type="text" name="username" placeholder="Username (எ.கா: physics)" required>
@@ -150,8 +227,10 @@ ADMIN_HTML = """
       <button type="submit">+ அனுமதி உருவாக்கு</button>
     </form>
   </div>
+
+  <!-- 3. All Accounts List -->
   <div class="card">
-    <h4>அனுமதிக்கப்பட்ட துறைகள் & Extension Tokens</h4>
+    <h4 style="margin-top:0;">அனுமதிக்கப்பட்ட துறைகள் & Extension Tokens</h4>
     <table>
       <tr><th>துறை</th><th>Username</th><th>Password</th><th>Extension Token</th><th>நிலை</th><th>நடவடிக்கை</th></tr>
       {% for u, info in users.items() %}
@@ -210,7 +289,6 @@ DASHBOARD_HTML = """
       உங்கள் Extension Token: <span style="color:#dc2626;">{{ token }}</span>
     </div>
 
-    <!-- இரண்டு முக்கிய பட்டன்கள் மட்டும் முதலில் தெரியும் -->
     <div class="menu-grid">
       <button type="button" class="menu-btn btn-tab-blue" onclick="openSection('marksSection')">
         1. Internal Marks Entry
@@ -222,7 +300,6 @@ DASHBOARD_HTML = """
       </button>
     </div>
 
-    <!-- 1. Internal Marks Section (கிளிக் செய்த பின் திறக்கும்) -->
     <div id="marksSection" class="card {% if marks_msg %}active{% endif %}">
       <h3>1. Internal Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
       <form method="POST" action="/upload-marks" enctype="multipart/form-data">
@@ -236,7 +313,6 @@ DASHBOARD_HTML = """
       {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
     </div>
 
-    <!-- 2. Exam Attendance / Absentees Section (கிளிக் செய்த பின் திறக்கும்) -->
     <div id="absSection" class="card {% if abs_msg %}active{% endif %}">
       <h3>2. Exam Attendance (பல பாடங்கள் Absentees)</h3>
       <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
@@ -301,6 +377,7 @@ def login():
             if not users[u]["active"]:
                 return render_template_string(LOGIN_HTML, error="உங்கள் கணக்கு தற்காலிகமாக நிறுத்தப்பட்டுள்ளது.")
             session["user"] = u
+            log_activity(u, users[u]["dept"], "Portal Login", "இணையதளத்தில் உள்நுழைந்தார்")
             return redirect(url_for("dashboard"))
         return render_template_string(LOGIN_HTML, error="தவறான Username அல்லது Password!")
     return render_template_string(LOGIN_HTML, error=None)
@@ -309,7 +386,15 @@ def login():
 def admin_panel():
     if session.get("user") != "admin":
         return redirect(url_for("login"))
-    return render_template_string(ADMIN_HTML, users=load_users())
+    return render_template_string(ADMIN_HTML, users=load_users(), logs=get_logs())
+
+@app.route("/admin/clear-logs")
+def admin_clear_logs():
+    if session.get("user") != "admin":
+        return redirect(url_for("login"))
+    if os.path.exists(LOGS_FILE):
+        os.remove(LOGS_FILE)
+    return redirect(url_for("admin_panel"))
 
 @app.route("/admin/add", methods=["POST"])
 def admin_add():
@@ -402,6 +487,7 @@ def upload_marks():
 
         MARKS_STORE[token] = subjects_map
         summary = ", ".join([f"{k} ({len(v['records'])})" for k, v in subjects_map.items()])
+        log_activity(u, users[u]["dept"], "Marks Upload", f"{len(subjects_map)} பாடங்கள்: {summary}")
         session["marks_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} பாடங்கள் பதிவேற்றப்பட்டன: {summary}."
     return redirect(url_for("dashboard"))
 
@@ -489,6 +575,7 @@ def upload_absentees():
 
     ABSENTEES_STORE[token] = subjects_map
     summary = ", ".join([f"{k} ({len(v['absentees'])} பேர்)" for k, v in subjects_map.items()])
+    log_activity(u, users[u]["dept"], "Absentees Upload", f"{len(subjects_map)} பாடங்கள்: {summary}")
     session["abs_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} பாடங்கள் சேமிக்கப்பட்டன: {summary}."
     return redirect(url_for("dashboard"))
 
@@ -496,9 +583,8 @@ def upload_absentees():
 def api_list_subjects():
     auth = request.headers.get("Authorization", "")
     token = auth.replace("Bearer ", "").strip()
-    users = load_users()
-    valid = any(info["token"] == token and info["active"] for info in users.values())
-    if not valid:
+    u, info = find_user_by_token(token)
+    if not info:
         return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
     abs_subs = list(ABSENTEES_STORE.get(token, {}).keys())
     marks_subs = list(MARKS_STORE.get(token, {}).keys())
@@ -509,15 +595,15 @@ def api_get_marks():
     auth = request.headers.get("Authorization", "")
     token = auth.replace("Bearer ", "").strip()
     req_sub = request.args.get("subject", "").strip().upper()
-    users = load_users()
-    valid = any(info["token"] == token and info["active"] for info in users.values())
-    if not valid:
+    u, info = find_user_by_token(token)
+    if not info:
         return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
     sub_map = MARKS_STORE.get(token, {})
     if not sub_map:
         return jsonify({"success": False, "error": "இந்த Token-க்கு மதிப்பெண்கள் எதுவும் பதிவேற்றப்படவில்லை."})
     chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
     data = sub_map[chosen]
+    log_activity(u, info["dept"], "Extension Fill Marks", f"பாடம்: {data['subject_code']} ({len(data['records'])} மாணவர்கள்)")
     return jsonify({"success": True, "subject_code": data["subject_code"], "records": data["records"]})
 
 @app.route("/api/extension/get-absentees")
@@ -525,15 +611,15 @@ def api_get_absentees():
     auth = request.headers.get("Authorization", "")
     token = auth.replace("Bearer ", "").strip()
     req_sub = request.args.get("subject", "").strip().upper()
-    users = load_users()
-    valid = any(info["token"] == token and info["active"] for info in users.values())
-    if not valid:
+    u, info = find_user_by_token(token)
+    if not info:
         return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
     sub_map = ABSENTEES_STORE.get(token, {})
     if not sub_map:
         return jsonify({"success": False, "error": "இந்த Token-க்கு Absentees பட்டியல் எதுவும் சேமிக்கப்படவில்லை."})
     chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
     data = sub_map[chosen]
+    log_activity(u, info["dept"], "Extension Mark Absentees", f"பாடம்: {data['subject_code']} ({len(data['absentees'])} பேர்)")
     return jsonify({
         "success": True,
         "degree_type": data.get("degree_type", ""),
