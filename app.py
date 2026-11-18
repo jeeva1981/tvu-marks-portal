@@ -1,9 +1,10 @@
 import os
+import io
 import json
 import uuid
 from datetime import datetime, timezone, timedelta
 import pandas as pd
-from flask import Flask, request, render_template_string, redirect, url_for, session, jsonify
+from flask import Flask, request, render_template_string, redirect, url_for, session, jsonify, send_file
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -282,9 +283,14 @@ DASHBOARD_HTML = """
     .btn-tab-purple { background: #7c3aed; }
     .card { background: white; padding: 22px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-top: 20px; display: none; }
     .card.active { display: block; }
-    h3 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+    .card-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; }
+    .card-head h3 { margin: 0; color: #1e3a8a; }
+    .tpl-btn { background: #0f766e; color: white !important; padding: 7px 13px; border-radius: 5px; font-size: 12px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .tpl-btn:hover { background: #115e59; }
+    .upload-box { background: #f8fafc; border: 1px dashed #94a3b8; padding: 12px; border-radius: 6px; margin-top: 10px; }
+    .upload-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     label { font-weight: bold; font-size: 12px; color: #334155; display: block; margin-top: 10px; }
-    input[type="text"], input[type="file"], textarea, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
+    input[type="text"], input[type="file"], textarea, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; background: white; }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
@@ -323,13 +329,21 @@ DASHBOARD_HTML = """
 
     <!-- 1. Internal Marks Section -->
     <div id="marksSection" class="card {% if marks_msg %}active{% endif %}">
-      <h3>1. Internal Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
+      <div class="card-head">
+        <h3>1. Internal Marks பதிவேற்றம்</h3>
+        <a href="/download-template/marks" class="tpl-btn">📥 மாதிரி Excel Template பதிவிறக்கம்</a>
+      </div>
       <form method="POST" action="/upload-marks" enctype="multipart/form-data">
-        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> எக்செல் கோப்பில் <b>Subject Code</b> நெடுவரிசை இருந்தாலோ அல்லது ஒவ்வொரு பாடத்திற்கும் தனி Sheet பெயர் (எ.கா: 23UCM11) இருந்தாலோ அனைத்தையும் ஒரே நேரத்தில் எடுத்துக்கொள்ளும்.</p>
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> மேலே உள்ள Template-ஐ டவுன்லோட் செய்து, அதில் பல பாடங்களின் மதிப்பெண்களை உள்ளிட்டு கீழே பதிவேற்றவும்.</p>
         <label>பாடக் குறியீடு (ஒரே ஒரு பாடம் எனில் மட்டும்):</label>
         <input type="text" name="subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
-        <label>எக்செல் கோப்பு (marks.xlsx):</label>
-        <input type="file" name="file" accept=".xlsx,.xls" required>
+        <div class="upload-box">
+          <div class="upload-row">
+            <label style="margin:0;">எக்செல் கோப்பு (Internal_Marks.xlsx):</label>
+            <a href="/download-template/marks" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
+          </div>
+          <input type="file" name="file" accept=".xlsx,.xls" required>
+        </div>
         <button type="submit" class="btn-blue">மதிப்பெண்களைப் பதிவேற்று</button>
       </form>
       {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
@@ -337,9 +351,12 @@ DASHBOARD_HTML = """
 
     <!-- 2. Exam Attendance / Absentees Section -->
     <div id="absSection" class="card {% if abs_msg %}active{% endif %}">
-      <h3>2. Exam Attendance (பல பாடங்கள் Absentees)</h3>
+      <div class="card-head">
+        <h3 style="color:#dc2626;">2. Exam Attendance (Absentees Entry)</h3>
+        <a href="/download-template/absentees" class="tpl-btn">📥 மாதிரி Excel Template பதிவிறக்கம்</a>
+      </div>
       <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
-        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> ஒரே எக்செல் கோப்பில் பல பாடங்களின் (23ULT10, 23ULE10...) Absentees விவரங்கள் இருந்தாலும் அனைத்தையும் தானாகப் பிரித்துச் சேமித்துக்கொள்ளும்.</p>
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> ஒரே எக்செல் கோப்பில் பல பாடங்களின் (23ULT10, 23ULE10...) Absentees விவரங்களை அடுக்கி வைத்துப் பதிவேற்றலாம்.</p>
         <div class="row2">
           <div>
             <label>Degree Type (விருப்பம்):</label>
@@ -368,8 +385,13 @@ DASHBOARD_HTML = """
         <input type="text" name="abs_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
         <label>வழி A: Absent Register Numbers (Copy-Paste):</label>
         <textarea name="abs_text" rows="2" placeholder="20423U10117, 20424U10001"></textarea>
-        <label>வழி B: அல்லது பல பாடங்கள் கொண்ட Absentees Excel கோப்பு:</label>
-        <input type="file" name="abs_file" accept=".xlsx,.xls">
+        <div class="upload-box">
+          <div class="upload-row">
+            <label style="margin:0;">வழி B: பல பாடங்கள் கொண்ட Absentees Excel கோப்பு:</label>
+            <a href="/download-template/absentees" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
+          </div>
+          <input type="file" name="abs_file" accept=".xlsx,.xls">
+        </div>
         <button type="submit" class="btn-red">அனைத்துப் பாட Absentees-ஐயும் சேமி</button>
       </form>
       {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
@@ -377,9 +399,12 @@ DASHBOARD_HTML = """
 
     <!-- 3. External Practical Marks Section -->
     <div id="pracSection" class="card {% if prac_msg %}active{% endif %}">
-      <h3 style="color:#7c3aed;">3. External Practical Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
+      <div class="card-head">
+        <h3 style="color:#7c3aed;">3. External Practical Marks பதிவேற்றம்</h3>
+        <a href="/download-template/practical" class="tpl-btn">📥 மாதிரி Excel Template பதிவிறக்கம்</a>
+      </div>
       <form method="POST" action="/upload-practical" enctype="multipart/form-data">
-        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> <code>TVU_Practical_Marks_Model.xlsx</code> மாதிரி கோப்பில் <b>External Mark</b> (எ.கா: 70, 65) அல்லது Absent எனில் <b>AAA</b> என உள்ளிட்டுப் பதிவேற்றவும்.</p>
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> Template-ல் <b>External Mark</b> (எ.கா: 70, 65) அல்லது Absent எனில் <b>AAA</b> என உள்ளிட்டுப் பதிவேற்றவும்.</p>
         <div class="row3">
           <div>
             <label>Degree Type:</label>
@@ -414,8 +439,13 @@ DASHBOARD_HTML = """
         </div>
         <label>பாடக் குறியீடு (ஒரே பாடம் எனில் மட்டும்):</label>
         <input type="text" name="prac_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
-        <label>Practical Marks Excel கோப்பு (practical.xlsx):</label>
-        <input type="file" name="prac_file" accept=".xlsx,.xls" required>
+        <div class="upload-box">
+          <div class="upload-row">
+            <label style="margin:0;">Practical Marks Excel கோப்பு:</label>
+            <a href="/download-template/practical" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
+          </div>
+          <input type="file" name="prac_file" accept=".xlsx,.xls" required>
+        </div>
         <button type="submit" class="btn-purple">Practical மதிப்பெண்களைப் பதிவேற்று</button>
       </form>
       {% if prac_msg %}<div class="msg-ok">{{ prac_msg }}</div>{% endif %}
@@ -433,6 +463,43 @@ DASHBOARD_HTML = """
 </body>
 </html>
 """
+
+@app.route("/download-template/<tpl_type>")
+def download_template(tpl_type):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        if tpl_type == "marks":
+            df = pd.DataFrame([
+                {"Subject Code": "23UCM11", "Register No": "20423U10001", "Attendance": 5, "Test": 14, "Assignment": 5},
+                {"Subject Code": "23UCM11", "Register No": "20423U10002", "Attendance": 4, "Test": 12, "Assignment": 4},
+                {"Subject Code": "23UCM12", "Register No": "20423U10001", "Attendance": 5, "Test": 15, "Assignment": 5},
+            ])
+            df.to_excel(writer, sheet_name="Internal_Marks", index=False)
+            filename = "TVU_Internal_Marks_Template.xlsx"
+        elif tpl_type == "absentees":
+            df = pd.DataFrame([
+                {"Degree Type": "Under Graduate", "Degree": "B.B.A.", "Discipline": "BUSINESS ADMINISTRATION", "Semester": "02", "Subject Code": "23ULE20", "Register No": "20423U08032"},
+                {"Degree Type": "Under Graduate", "Degree": "B.B.A.", "Discipline": "BUSINESS ADMINISTRATION", "Semester": "02", "Subject Code": "23ULE20", "Register No": "20423U08140"},
+                {"Degree Type": "Under Graduate", "Degree": "B.Com.", "Discipline": "U10", "Semester": "01", "Subject Code": "23ULT10", "Register No": "20424U10005"},
+            ])
+            df.to_excel(writer, sheet_name="Absentees_Entry", index=False)
+            filename = "TVU_Absentees_Template.xlsx"
+        else:
+            df = pd.DataFrame([
+                {"Degree Type": "Under Graduate", "Degree": "B.Sc.", "Discipline": "U18", "Semester": "01", "Regulation": "2026", "Exam Type": "External Exam", "Subject Code": "26UPCS14", "Register No": "20426U18001", "External Mark": "70"},
+                {"Degree Type": "Under Graduate", "Degree": "B.Sc.", "Discipline": "U18", "Semester": "01", "Regulation": "2026", "Exam Type": "External Exam", "Subject Code": "26UPCS14", "Register No": "20426U18002", "External Mark": "65"},
+                {"Degree Type": "Under Graduate", "Degree": "B.Sc.", "Discipline": "U18", "Semester": "01", "Regulation": "2026", "Exam Type": "External Exam", "Subject Code": "26UPCS14", "Register No": "20426U18003", "External Mark": "AAA"},
+            ])
+            df.to_excel(writer, sheet_name="Practical_Marks", index=False)
+            filename = "TVU_Practical_Marks_Template.xlsx"
+
+    output.seek(0)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 @app.route("/", methods=["GET", "POST"])
 def login():
