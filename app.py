@@ -177,18 +177,24 @@ DASHBOARD_HTML = """
   <meta charset="UTF-8">
   <title>TVU Automation Dashboard</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; }
-    .container { max-width: 980px; margin: auto; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; margin: 0; }
+    .container { max-width: 720px; margin: 20px auto; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+    .menu-btn { padding: 18px 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.12); transition: transform 0.15s, opacity 0.15s; text-align: center; }
+    .menu-btn:hover { transform: translateY(-2px); opacity: 0.95; }
+    .menu-btn span { display: block; font-size: 12px; font-weight: normal; margin-top: 5px; opacity: 0.9; }
+    .btn-tab-blue { background: #1e3a8a; }
+    .btn-tab-red { background: #dc2626; }
+    .card { background: white; padding: 22px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-top: 20px; display: none; }
+    .card.active { display: block; }
     h3 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
     label { font-weight: bold; font-size: 12px; color: #334155; display: block; margin-top: 10px; }
     input[type="text"], input[type="file"], textarea, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
-    .btn-red { width: 100%; padding: 11px; background: #dc2626; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; }
+    .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
+    .btn-red { width: 100%; padding: 11px; background: #dc2626; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
     .msg-ok { background: #dcfce7; border-left: 4px solid #16a34a; padding: 12px; margin-top: 15px; font-size: 13px; line-height: 1.5; }
     a { color: white; text-decoration: none; font-weight: bold; }
   </style>
@@ -204,60 +210,80 @@ DASHBOARD_HTML = """
       உங்கள் Extension Token: <span style="color:#dc2626;">{{ token }}</span>
     </div>
 
-    <div class="grid">
-      <div class="card">
-        <h3>1. Internal Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
-        <form method="POST" action="/upload-marks" enctype="multipart/form-data">
-          <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> எக்செல் கோப்பில் <b>Subject Code</b> நெடுவரிசை இருந்தாலோ அல்லது ஒவ்வொரு பாடத்திற்கும் தனி Sheet பெயர் (எ.கா: 23UCM11) இருந்தாலோ அனைத்தையும் ஒரே நேரத்தில் எடுத்துக்கொள்ளும்.</p>
-          <label>பாடக் குறியீடு (ஒரே ஒரு பாடம் எனில் மட்டும்):</label>
-          <input type="text" name="subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
-          <label>எக்செல் கோப்பு (marks.xlsx):</label>
-          <input type="file" name="file" accept=".xlsx,.xls" required>
-          <button type="submit" class="btn-blue">மதிப்பெண்களைப் பதிவேற்று</button>
-        </form>
-        {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
-      </div>
+    <!-- இரண்டு முக்கிய பட்டன்கள் மட்டும் முதலில் தெரியும் -->
+    <div class="menu-grid">
+      <button type="button" class="menu-btn btn-tab-blue" onclick="openSection('marksSection')">
+        1. Internal Marks Entry
+        <span>மதிப்பெண்களைப் பதிவேற்ற கிளிக் செய்யவும்</span>
+      </button>
+      <button type="button" class="menu-btn btn-tab-red" onclick="openSection('absSection')">
+        2. Exam Attendance Entry
+        <span>Absentees பட்டியல் பதிவேற்ற கிளிக் செய்யவும்</span>
+      </button>
+    </div>
 
-      <div class="card">
-        <h3>2. Exam Attendance (பல பாடங்கள் Absentees)</h3>
-        <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
-          <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> ஒரே எக்செல் கோப்பில் பல பாடங்களின் (23ULT10, 23ULE10...) Absentees விவரங்கள் இருந்தாலும் அனைத்தையும் தானாகப் பிரித்துச் சேமித்துக்கொள்ளும்.</p>
-          <div class="row2">
-            <div>
-              <label>Degree Type (விருப்பம்):</label>
-              <select name="degree_type">
-                <option value="">-- Excel-ல் இருந்து எடு --</option>
-                <option value="Under Graduate">Under Graduate</option>
-                <option value="Post Graduate">Post Graduate</option>
-              </select>
-            </div>
-            <div>
-              <label>Degree (எ.கா: B.Com.):</label>
-              <input type="text" name="degree" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
-            </div>
+    <!-- 1. Internal Marks Section (கிளிக் செய்த பின் திறக்கும்) -->
+    <div id="marksSection" class="card {% if marks_msg %}active{% endif %}">
+      <h3>1. Internal Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
+      <form method="POST" action="/upload-marks" enctype="multipart/form-data">
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> எக்செல் கோப்பில் <b>Subject Code</b> நெடுவரிசை இருந்தாலோ அல்லது ஒவ்வொரு பாடத்திற்கும் தனி Sheet பெயர் (எ.கா: 23UCM11) இருந்தாலோ அனைத்தையும் ஒரே நேரத்தில் எடுத்துக்கொள்ளும்.</p>
+        <label>பாடக் குறியீடு (ஒரே ஒரு பாடம் எனில் மட்டும்):</label>
+        <input type="text" name="subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
+        <label>எக்செல் கோப்பு (marks.xlsx):</label>
+        <input type="file" name="file" accept=".xlsx,.xls" required>
+        <button type="submit" class="btn-blue">மதிப்பெண்களைப் பதிவேற்று</button>
+      </form>
+      {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
+    </div>
+
+    <!-- 2. Exam Attendance / Absentees Section (கிளிக் செய்த பின் திறக்கும்) -->
+    <div id="absSection" class="card {% if abs_msg %}active{% endif %}">
+      <h3>2. Exam Attendance (பல பாடங்கள் Absentees)</h3>
+      <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> ஒரே எக்செல் கோப்பில் பல பாடங்களின் (23ULT10, 23ULE10...) Absentees விவரங்கள் இருந்தாலும் அனைத்தையும் தானாகப் பிரித்துச் சேமித்துக்கொள்ளும்.</p>
+        <div class="row2">
+          <div>
+            <label>Degree Type (விருப்பம்):</label>
+            <select name="degree_type">
+              <option value="">-- Excel-ல் இருந்து எடு --</option>
+              <option value="Under Graduate">Under Graduate</option>
+              <option value="Post Graduate">Post Graduate</option>
+            </select>
           </div>
-          <div class="row2">
-            <div>
-              <label>Discipline (எ.கா: U10):</label>
-              <input type="text" name="discipline" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
-            </div>
-            <div>
-              <label>Semester (எ.கா: 01):</label>
-              <input type="text" name="semester" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
-            </div>
+          <div>
+            <label>Degree (எ.கா: B.Com.):</label>
+            <input type="text" name="degree" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
           </div>
-          <label>பாடக் குறியீடு (ஒரே பாடம் எனில் மட்டும்):</label>
-          <input type="text" name="abs_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
-          <label>வழி A: Absent Register Numbers (Copy-Paste):</label>
-          <textarea name="abs_text" rows="2" placeholder="20423U10117, 20424U10001"></textarea>
-          <label>வழி B: அல்லது பல பாடங்கள் கொண்ட Absentees Excel கோப்பு:</label>
-          <input type="file" name="abs_file" accept=".xlsx,.xls">
-          <button type="submit" class="btn-red">அனைத்துப் பாட Absentees-ஐயும் சேமி</button>
-        </form>
-        {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
-      </div>
+        </div>
+        <div class="row2">
+          <div>
+            <label>Discipline (எ.கா: U10):</label>
+            <input type="text" name="discipline" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+          </div>
+          <div>
+            <label>Semester (எ.கா: 01):</label>
+            <input type="text" name="semester" placeholder="Excel-ல் இருந்தால் காலியாக விடலாம்">
+          </div>
+        </div>
+        <label>பாடக் குறியீடு (ஒரே பாடம் எனில் மட்டும்):</label>
+        <input type="text" name="abs_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
+        <label>வழி A: Absent Register Numbers (Copy-Paste):</label>
+        <textarea name="abs_text" rows="2" placeholder="20423U10117, 20424U10001"></textarea>
+        <label>வழி B: அல்லது பல பாடங்கள் கொண்ட Absentees Excel கோப்பு:</label>
+        <input type="file" name="abs_file" accept=".xlsx,.xls">
+        <button type="submit" class="btn-red">அனைத்துப் பாட Absentees-ஐயும் சேமி</button>
+      </form>
+      {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
     </div>
   </div>
+
+  <script>
+    function openSection(sectionId) {
+      document.getElementById('marksSection').classList.remove('active');
+      document.getElementById('absSection').classList.remove('active');
+      document.getElementById(sectionId).classList.add('active');
+    }
+  </script>
 </body>
 </html>
 """
