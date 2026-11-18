@@ -15,6 +15,10 @@ LOGS_FILE = "activity_logs.json"
 MARKS_STORE = {}
 ABSENTEES_STORE = {}
 
+# Admin Login விவரங்கள் (இதையும் இங்கே மாற்றிக்கொள்ளலாம்)
+ADMIN_USER = "admin"
+ADMIN_PASS = "admin123"
+
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def now_ist():
@@ -35,7 +39,7 @@ def log_activity(user, dept, action, details):
         "action": action,
         "details": details
     })
-    logs = logs[:250]  # கடைசி 250 செயல்பாடுகளைச் சேமித்து வைக்கும்
+    logs = logs[:250]
     with open(LOGS_FILE, "w", encoding="utf-8") as f:
         json.dump(logs, f, indent=2, ensure_ascii=False)
 
@@ -170,16 +174,18 @@ ADMIN_HTML = """
     body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 25px; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-top: 20px; }
-    input { padding: 8px; margin-right: 10px; border: 1px solid #cbd5e1; border-radius: 4px; }
-    button { padding: 8px 15px; background: #16a34a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    input { padding: 7px; margin-right: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; }
+    button { padding: 7px 12px; background: #16a34a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+    .btn-edit { background: #2563eb; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-    th, td { padding: 10px; border: 1px solid #e2e8f0; text-align: left; }
+    th, td { padding: 9px; border: 1px solid #e2e8f0; text-align: left; }
     th { background: #f1f5f9; }
     a { color: white; text-decoration: none; font-weight: bold; }
     .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
     .b-login { background: #2563eb; }
     .b-upload { background: #16a34a; }
     .b-ext { background: #dc2626; }
+    .msg { background: #dcfce7; border-left: 4px solid #16a34a; padding: 10px; margin-top: 12px; font-size: 13px; font-weight: bold; color: #166534; }
   </style>
 </head>
 <body>
@@ -191,7 +197,46 @@ ADMIN_HTML = """
     </div>
   </div>
 
-  <!-- 1. Live Activity Logs -->
+  {% if admin_msg %}<div class="msg">{{ admin_msg }}</div>{% endif %}
+
+  <!-- 1. All Accounts List with Edit Username/Password -->
+  <div class="card">
+    <h4 style="margin-top:0; color:#1e3a8a;">துறைகளின் Username & Password மாற்றும் பகுதி</h4>
+    <table>
+      <tr><th>துறை</th><th>தற்போதைய Username & Password மாற்றம்</th><th>Extension Token</th><th>நிலை</th><th>நடவடிக்கை</th></tr>
+      {% for u, info in users.items() %}
+      <tr>
+        <td>{{ info.dept }}</td>
+        <td>
+          <form method="POST" action="/admin/update/{{ u }}" style="display:flex; gap:5px; align-items:center; margin:0;">
+            <input type="text" name="new_username" value="{{ u }}" style="width:110px; font-weight:bold;" required>
+            <input type="text" name="new_password" value="{{ info.password }}" style="width:130px;" required>
+            <button type="submit" class="btn-edit">மாற்று (Save)</button>
+          </form>
+        </td>
+        <td style="color:#b91c1c; font-weight:bold;">{{ info.token }}</td>
+        <td>{{ "Active" if info.active else "Blocked" }}</td>
+        <td>
+          <a href="/admin/toggle/{{ u }}" style="color:#1e3a8a; margin-right:10px;">{{ "Block" if info.active else "Allow" }}</a>
+          <a href="/admin/delete/{{ u }}" style="color:#dc2626;" onclick="return confirm('இந்தக் கணக்கை நீக்க வேண்டுமா?')">நீக்கு</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <!-- 2. Create New Account -->
+  <div class="card">
+    <h4 style="margin-top:0;">புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
+    <form method="POST" action="/admin/add">
+      <input type="text" name="dept" placeholder="துறை பெயர் (எ.கா: Dept of Physics)" required>
+      <input type="text" name="username" placeholder="Username (எ.கா: physics)" required>
+      <input type="text" name="password" placeholder="Password (எ.கா: TvmPhy@2026)" required>
+      <button type="submit">+ அனுமதி உருவாக்கு</button>
+    </form>
+  </div>
+
+  <!-- 3. Live Activity Logs -->
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <h4 style="margin:0; color:#1e3a8a;">யார் யாரெல்லாம் பயன்படுத்துகிறார்கள்? (நேரடிப் பயன்பாட்டுப் பதிவு - {{ logs|length }})</h4>
@@ -213,35 +258,6 @@ ADMIN_HTML = """
       </tr>
       {% else %}
       <tr><td colspan="5" style="text-align:center; color:#64748b;">இதுவரை எந்தப் பயன்பாட்டுப் பதிவும் இல்லை.</td></tr>
-      {% endfor %}
-    </table>
-  </div>
-
-  <!-- 2. Create New Account -->
-  <div class="card">
-    <h4 style="margin-top:0;">புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
-    <form method="POST" action="/admin/add">
-      <input type="text" name="dept" placeholder="துறை பெயர் (எ.கா: Dept of Physics)" required>
-      <input type="text" name="username" placeholder="Username (எ.கா: physics)" required>
-      <input type="text" name="password" placeholder="Password (எ.கா: TvmPhy@2026)" required>
-      <button type="submit">+ அனுமதி உருவாக்கு</button>
-    </form>
-  </div>
-
-  <!-- 3. All Accounts List -->
-  <div class="card">
-    <h4 style="margin-top:0;">அனுமதிக்கப்பட்ட துறைகள் & Extension Tokens</h4>
-    <table>
-      <tr><th>துறை</th><th>Username</th><th>Password</th><th>Extension Token</th><th>நிலை</th><th>நடவடிக்கை</th></tr>
-      {% for u, info in users.items() %}
-      <tr>
-        <td>{{ info.dept }}</td>
-        <td><b>{{ u }}</b></td>
-        <td>{{ info.password }}</td>
-        <td style="color:#b91c1c; font-weight:bold;">{{ info.token }}</td>
-        <td>{{ "Active" if info.active else "Blocked" }}</td>
-        <td><a href="/admin/toggle/{{ u }}" style="color:#1e3a8a;">{{ "Block செய்" if info.active else "Allow செய்" }}</a></td>
-      </tr>
       {% endfor %}
     </table>
   </div>
@@ -369,7 +385,7 @@ def login():
     if request.method == "POST":
         u = request.form.get("username", "").strip().lower()
         p = request.form.get("password", "").strip()
-        if u == "admin" and p == "admin123":
+        if u == ADMIN_USER.lower() and p == ADMIN_PASS:
             session["user"] = "admin"
             return redirect(url_for("admin_panel"))
         users = load_users()
@@ -386,7 +402,38 @@ def login():
 def admin_panel():
     if session.get("user") != "admin":
         return redirect(url_for("login"))
-    return render_template_string(ADMIN_HTML, users=load_users(), logs=get_logs())
+    return render_template_string(
+        ADMIN_HTML,
+        users=load_users(),
+        logs=get_logs(),
+        admin_msg=session.pop("admin_msg", None)
+    )
+
+@app.route("/admin/update/<old_username>", methods=["POST"])
+def admin_update(old_username):
+    if session.get("user") != "admin":
+        return redirect(url_for("login"))
+    users = load_users()
+    new_u = request.form.get("new_username", "").strip().lower()
+    new_p = request.form.get("new_password", "").strip()
+    if old_username in users and new_u and new_p:
+        info = users.pop(old_username)
+        info["password"] = new_p
+        users[new_u] = info
+        save_users(users)
+        session["admin_msg"] = f"வெற்றி! '{old_username}' கணக்கு '{new_u}' (Password: {new_p}) என மாற்றப்பட்டது."
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/delete/<username>")
+def admin_delete(username):
+    if session.get("user") != "admin":
+        return redirect(url_for("login"))
+    users = load_users()
+    if username in users:
+        del users[username]
+        save_users(users)
+        session["admin_msg"] = f"'{username}' கணக்கு நீக்கப்பட்டது."
+    return redirect(url_for("admin_panel"))
 
 @app.route("/admin/clear-logs")
 def admin_clear_logs():
@@ -409,6 +456,7 @@ def admin_add():
         "active": True
     }
     save_users(users)
+    session["admin_msg"] = f"புதிய கணக்கு '{u}' உருவாக்கப்பட்டது."
     return redirect(url_for("admin_panel"))
 
 @app.route("/admin/toggle/<username>")
