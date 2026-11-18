@@ -25,7 +25,7 @@ def load_users():
             "active": True
         },
         "jeeva": {
-            "password": "TvmMit@2026",
+            "password": "TvmJee@2026",
             "dept": "jeeva - Exam Cell",
             "token": "TVM-JEEVA01",
             "active": True
