@@ -468,13 +468,19 @@ DASHBOARD_HTML = """
 def download_template(tpl_type):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        if tpl_type == "marks":
-            df = pd.DataFrame([
-                {"Subject Code": "23UCM11", "Register No": "20423U10001", "Attendance": 5, "Test": 14, "Assignment": 5},
-                {"Subject Code": "23UCM11", "Register No": "20423U10002", "Attendance": 4, "Test": 12, "Assignment": 4},
-                {"Subject Code": "23UCM12", "Register No": "20423U10001", "Attendance": 5, "Test": 15, "Assignment": 5},
-            ])
-            df.to_excel(writer, sheet_name="Internal_Marks", index=False)
+       if tpl_type == "marks":
+            sample_sheets = {
+                "23UCM11": [
+                    {"Register No": "20423U10001", "Student Name": "AARTHI K", "Attendance": 5, "Test": 14, "Assignment": 5},
+                    {"Register No": "20423U10002", "Student Name": "BALAJI S", "Attendance": 4, "Test": 12, "Assignment": 4},
+                ],
+                "23UCM12": [
+                    {"Register No": "20423U10001", "Student Name": "AARTHI K", "Attendance": 5, "Test": 13, "Assignment": 5},
+                    {"Register No": "20423U10002", "Student Name": "BALAJI S", "Attendance": 4, "Test": 11, "Assignment": 4},
+                ],
+            }
+            for sub_name, rows in sample_sheets.items():
+                pd.DataFrame(rows).to_excel(writer, sheet_name=sub_name, index=False)
             filename = "TVU_Internal_Marks_Template.xlsx"
         elif tpl_type == "absentees":
             df = pd.DataFrame([
