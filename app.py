@@ -14,8 +14,8 @@ USERS_FILE = "users.json"
 LOGS_FILE = "activity_logs.json"
 MARKS_STORE = {}
 ABSENTEES_STORE = {}
+PRACTICAL_STORE = {}
 
-# Admin Login விவரங்கள் (இதையும் இங்கே மாற்றிக்கொள்ளலாம்)
 ADMIN_USER = "admin"
 ADMIN_PASS = "admin123"
 
@@ -199,7 +199,6 @@ ADMIN_HTML = """
 
   {% if admin_msg %}<div class="msg">{{ admin_msg }}</div>{% endif %}
 
-  <!-- 1. All Accounts List with Edit Username/Password -->
   <div class="card">
     <h4 style="margin-top:0; color:#1e3a8a;">துறைகளின் Username & Password மாற்றும் பகுதி</h4>
     <table>
@@ -225,7 +224,6 @@ ADMIN_HTML = """
     </table>
   </div>
 
-  <!-- 2. Create New Account -->
   <div class="card">
     <h4 style="margin-top:0;">புதிய துறை ஆசிரியர் கணக்கு உருவாக்குதல்</h4>
     <form method="POST" action="/admin/add">
@@ -236,7 +234,6 @@ ADMIN_HTML = """
     </form>
   </div>
 
-  <!-- 3. Live Activity Logs -->
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <h4 style="margin:0; color:#1e3a8a;">யார் யாரெல்லாம் பயன்படுத்துகிறார்கள்? (நேரடிப் பயன்பாட்டுப் பதிவு - {{ logs|length }})</h4>
@@ -273,23 +270,26 @@ DASHBOARD_HTML = """
   <title>TVU Automation Dashboard</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; margin: 0; }
-    .container { max-width: 720px; margin: 20px auto; }
+    .container { max-width: 820px; margin: 20px auto; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; }
-    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-    .menu-btn { padding: 18px 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.12); transition: transform 0.15s, opacity 0.15s; text-align: center; }
+    .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+    .menu-btn { padding: 18px 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.12); transition: transform 0.15s, opacity 0.15s; text-align: center; }
     .menu-btn:hover { transform: translateY(-2px); opacity: 0.95; }
-    .menu-btn span { display: block; font-size: 12px; font-weight: normal; margin-top: 5px; opacity: 0.9; }
+    .menu-btn span { display: block; font-size: 11px; font-weight: normal; margin-top: 5px; opacity: 0.9; }
     .btn-tab-blue { background: #1e3a8a; }
     .btn-tab-red { background: #dc2626; }
+    .btn-tab-purple { background: #7c3aed; }
     .card { background: white; padding: 22px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-top: 20px; display: none; }
     .card.active { display: block; }
     h3 { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
     label { font-weight: bold; font-size: 12px; color: #334155; display: block; margin-top: 10px; }
     input[type="text"], input[type="file"], textarea, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
     .btn-red { width: 100%; padding: 11px; background: #dc2626; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
+    .btn-purple { width: 100%; padding: 11px; background: #7c3aed; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
     .msg-ok { background: #dcfce7; border-left: 4px solid #16a34a; padding: 12px; margin-top: 15px; font-size: 13px; line-height: 1.5; }
     a { color: white; text-decoration: none; font-weight: bold; }
   </style>
@@ -305,17 +305,23 @@ DASHBOARD_HTML = """
       உங்கள் Extension Token: <span style="color:#dc2626;">{{ token }}</span>
     </div>
 
+    <!-- 3 முக்கிய பட்டன்கள் -->
     <div class="menu-grid">
       <button type="button" class="menu-btn btn-tab-blue" onclick="openSection('marksSection')">
         1. Internal Marks Entry
-        <span>மதிப்பெண்களைப் பதிவேற்ற கிளிக் செய்யவும்</span>
+        <span>அகமதிப்பீட்டு மதிப்பெண்கள்</span>
       </button>
       <button type="button" class="menu-btn btn-tab-red" onclick="openSection('absSection')">
         2. Exam Attendance Entry
-        <span>Absentees பட்டியல் பதிவேற்ற கிளிக் செய்யவும்</span>
+        <span>தேர்வு Absentees பட்டியல்</span>
+      </button>
+      <button type="button" class="menu-btn btn-tab-purple" onclick="openSection('pracSection')">
+        3. External Practical Marks
+        <span>செய்முறைத் தேர்வு மதிப்பெண்கள்</span>
       </button>
     </div>
 
+    <!-- 1. Internal Marks Section -->
     <div id="marksSection" class="card {% if marks_msg %}active{% endif %}">
       <h3>1. Internal Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
       <form method="POST" action="/upload-marks" enctype="multipart/form-data">
@@ -329,6 +335,7 @@ DASHBOARD_HTML = """
       {% if marks_msg %}<div class="msg-ok">{{ marks_msg }}</div>{% endif %}
     </div>
 
+    <!-- 2. Exam Attendance / Absentees Section -->
     <div id="absSection" class="card {% if abs_msg %}active{% endif %}">
       <h3>2. Exam Attendance (பல பாடங்கள் Absentees)</h3>
       <form method="POST" action="/upload-absentees" enctype="multipart/form-data">
@@ -367,12 +374,59 @@ DASHBOARD_HTML = """
       </form>
       {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
     </div>
+
+    <!-- 3. External Practical Marks Section -->
+    <div id="pracSection" class="card {% if prac_msg %}active{% endif %}">
+      <h3 style="color:#7c3aed;">3. External Practical Marks பதிவேற்றம் (பல பாடங்கள்)</h3>
+      <form method="POST" action="/upload-practical" enctype="multipart/form-data">
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> <code>TVU_Practical_Marks_Model.xlsx</code> மாதிரி கோப்பில் <b>External Mark</b> (எ.கா: 70, 65) அல்லது Absent எனில் <b>AAA</b> என உள்ளிட்டுப் பதிவேற்றவும்.</p>
+        <div class="row3">
+          <div>
+            <label>Degree Type:</label>
+            <select name="degree_type">
+              <option value="">-- Excel-ல் இருந்து --</option>
+              <option value="Under Graduate">Under Graduate</option>
+              <option value="Post Graduate">Post Graduate</option>
+            </select>
+          </div>
+          <div>
+            <label>Degree (எ.கா: B.Sc.):</label>
+            <input type="text" name="degree" placeholder="Excel-ல் இருந்தால் விடலாம்">
+          </div>
+          <div>
+            <label>Discipline (எ.கா: U18):</label>
+            <input type="text" name="discipline" placeholder="Excel-ல் இருந்தால் விடலாம்">
+          </div>
+        </div>
+        <div class="row3">
+          <div>
+            <label>Semester (எ.கா: 01):</label>
+            <input type="text" name="semester" placeholder="Excel-ல் இருந்தால் விடலாம்">
+          </div>
+          <div>
+            <label>Regulation (எ.கா: 2026):</label>
+            <input type="text" name="regulation" placeholder="Excel-ல் இருந்தால் விடலாம்">
+          </div>
+          <div>
+            <label>Exam Type:</label>
+            <input type="text" name="exam_type" value="External Exam">
+          </div>
+        </div>
+        <label>பாடக் குறியீடு (ஒரே பாடம் எனில் மட்டும்):</label>
+        <input type="text" name="prac_subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
+        <label>Practical Marks Excel கோப்பு (practical.xlsx):</label>
+        <input type="file" name="prac_file" accept=".xlsx,.xls" required>
+        <button type="submit" class="btn-purple">Practical மதிப்பெண்களைப் பதிவேற்று</button>
+      </form>
+      {% if prac_msg %}<div class="msg-ok">{{ prac_msg }}</div>{% endif %}
+    </div>
   </div>
 
   <script>
     function openSection(sectionId) {
       document.getElementById('marksSection').classList.remove('active');
       document.getElementById('absSection').classList.remove('active');
+      document.getElementById('pracSection').classList.remove('active');
       document.getElementById(sectionId).classList.add('active');
     }
   </script>
@@ -482,7 +536,8 @@ def dashboard():
         username=u,
         token=info["token"],
         marks_msg=session.pop("marks_msg", None),
-        abs_msg=session.pop("abs_msg", None)
+        abs_msg=session.pop("abs_msg", None),
+        prac_msg=session.pop("prac_msg", None)
     )
 
 @app.route("/upload-marks", methods=["POST"])
@@ -500,7 +555,7 @@ def upload_marks():
         subjects_map = {}
 
         for sheet_name in xl.sheet_names:
-            if sheet_name.strip().lower() in ["instructions", "absentees", "absentees_entry"]:
+            if sheet_name.strip().lower() in ["instructions", "absentees", "absentees_entry", "practical_marks"]:
                 continue
             df = xl.parse(sheet_name)
             if df.empty:
@@ -571,7 +626,7 @@ def upload_absentees():
     if abs_file and abs_file.filename:
         xl = pd.ExcelFile(abs_file)
         for sheet_name in xl.sheet_names:
-            if sheet_name.strip().lower() in ["instructions", "internal_marks", "marks"]:
+            if sheet_name.strip().lower() in ["instructions", "internal_marks", "marks", "practical_marks"]:
                 continue
             df = xl.parse(sheet_name, dtype=str)
             if df.empty:
@@ -627,16 +682,113 @@ def upload_absentees():
     session["abs_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} பாடங்கள் சேமிக்கப்பட்டன: {summary}."
     return redirect(url_for("dashboard"))
 
+@app.route("/upload-practical", methods=["POST"])
+def upload_practical():
+    u = session.get("user")
+    users = load_users()
+    if not u or u not in users:
+        return redirect(url_for("login"))
+    token = users[u]["token"]
+
+    def_deg_type = request.form.get("degree_type", "").strip()
+    def_degree = request.form.get("degree", "").strip()
+    def_disc = request.form.get("discipline", "").strip()
+    def_sem = request.form.get("semester", "").strip()
+    def_reg = request.form.get("regulation", "").strip()
+    def_exam = request.form.get("exam_type", "External Exam").strip()
+    def_sub = request.form.get("prac_subject_code", "").strip().upper()
+    prac_file = request.files.get("prac_file")
+
+    subjects_map = {}
+
+    if prac_file and prac_file.filename:
+        xl = pd.ExcelFile(prac_file)
+        for sheet_name in xl.sheet_names:
+            if sheet_name.strip().lower() in ["instructions", "absentees", "internal_marks"]:
+                continue
+            df = xl.parse(sheet_name, dtype=str)
+            if df.empty:
+                continue
+            df.columns = [str(c).strip().lower() for c in df.columns]
+
+            deg_type_col = next((c for c in df.columns if "degree type" in c or "deg_type" in c or "type" in c), None)
+            deg_col = next((c for c in df.columns if "degree" in c and c != deg_type_col), None)
+            disc_col = next((c for c in df.columns if "disc" in c or "branch" in c or "dept" in c), None)
+            sem_col = next((c for c in df.columns if "sem" in c), None)
+            regu_col = next((c for c in df.columns if "regu" in c or "batch" in c or "year" in c), None)
+            exam_col = next((c for c in df.columns if "exam" in c), None)
+            sub_col = next((c for c in df.columns if "sub" in c or "code" in c), None)
+            regno_col = next((c for c in df.columns if "reg" in c and c != regu_col), None)
+            mark_col = next((c for c in df.columns if "mark" in c or "ext" in c or "score" in c), None)
+
+            if not regno_col or not mark_col:
+                continue
+
+            sheet_sub = def_sub if def_sub else sheet_name.strip().upper()
+
+            for _, row in df.iterrows():
+                reg = str(row[regno_col]).strip().upper() if not pd.isna(row[regno_col]) else ""
+                mark = str(row[mark_col]).strip().upper() if not pd.isna(row[mark_col]) else ""
+                if not reg or reg == "NAN" or not mark or mark == "NAN":
+                    continue
+                if mark.endswith(".0"):
+                    mark = mark[:-2]
+
+                row_sub = str(row[sub_col]).strip().upper() if (sub_col and not pd.isna(row[sub_col])) else sheet_sub
+                if not row_sub or row_sub == "NAN":
+                    continue
+
+                r_deg_type = str(row[deg_type_col]).strip() if (deg_type_col and not pd.isna(row[deg_type_col])) else def_deg_type
+                r_deg = str(row[deg_col]).strip() if (deg_col and not pd.isna(row[deg_col])) else def_degree
+                r_disc = str(row[disc_col]).strip() if (disc_col and not pd.isna(row[disc_col])) else def_disc
+                r_sem = str(row[sem_col]).strip() if (sem_col and not pd.isna(row[sem_col])) else def_sem
+                if r_sem.isdigit() and len(r_sem) == 1:
+                    r_sem = "0" + r_sem
+                r_regu = str(row[regu_col]).strip() if (regu_col and not pd.isna(row[regu_col])) else def_reg
+                if r_regu.endswith(".0"):
+                    r_regu = r_regu[:-2]
+                r_exam = str(row[exam_col]).strip() if (exam_col and not pd.isna(row[exam_col])) else def_exam
+
+                if row_sub not in subjects_map:
+                    subjects_map[row_sub] = {
+                        "degree_type": r_deg_type,
+                        "degree": r_deg,
+                        "discipline": r_disc,
+                        "semester": r_sem,
+                        "regulation": r_regu,
+                        "exam_type": r_exam,
+                        "subject_code": row_sub,
+                        "records": []
+                    }
+
+                subjects_map[row_sub]["records"].append({"reg": reg, "mark": mark})
+
+    if not subjects_map:
+        session["prac_msg"] = "பிழை: Register No மற்றும் External Mark நெடுவரிசைகள் காணப்படவில்லை!"
+        return redirect(url_for("dashboard"))
+
+    PRACTICAL_STORE[token] = subjects_map
+    summary = ", ".join([f"{k} ({len(v['records'])} பேர்)" for k, v in subjects_map.items()])
+    log_activity(u, users[u]["dept"], "Practical Upload", f"{len(subjects_map)} பாடங்கள்: {summary}")
+    session["prac_msg"] = f"தயார்! மொத்தம் {len(subjects_map)} Practical பாடங்கள் சேமிக்கப்பட்டன: {summary}."
+    return redirect(url_for("dashboard"))
+
 @app.route("/api/extension/list-subjects")
 def api_list_subjects():
     auth = request.headers.get("Authorization", "")
     token = auth.replace("Bearer ", "").strip()
     u, info = find_user_by_token(token)
     if not info:
-        return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
+        return jsonify({"success": False, "error": "Invalid or blocked User Token!"})
     abs_subs = list(ABSENTEES_STORE.get(token, {}).keys())
     marks_subs = list(MARKS_STORE.get(token, {}).keys())
-    return jsonify({"success": True, "abs_subjects": abs_subs, "marks_subjects": marks_subs})
+    prac_subs = list(PRACTICAL_STORE.get(token, {}).keys())
+    return jsonify({
+        "success": True,
+        "abs_subjects": abs_subs,
+        "marks_subjects": marks_subs,
+        "prac_subjects": prac_subs
+    })
 
 @app.route("/api/extension/get-marks")
 def api_get_marks():
@@ -645,10 +797,10 @@ def api_get_marks():
     req_sub = request.args.get("subject", "").strip().upper()
     u, info = find_user_by_token(token)
     if not info:
-        return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
+        return jsonify({"success": False, "error": "Invalid or blocked User Token!"})
     sub_map = MARKS_STORE.get(token, {})
     if not sub_map:
-        return jsonify({"success": False, "error": "இந்த Token-க்கு மதிப்பெண்கள் எதுவும் பதிவேற்றப்படவில்லை."})
+        return jsonify({"success": False, "error": "No Internal Marks uploaded for this token."})
     chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
     data = sub_map[chosen]
     log_activity(u, info["dept"], "Extension Fill Marks", f"பாடம்: {data['subject_code']} ({len(data['records'])} மாணவர்கள்)")
@@ -661,10 +813,10 @@ def api_get_absentees():
     req_sub = request.args.get("subject", "").strip().upper()
     u, info = find_user_by_token(token)
     if not info:
-        return jsonify({"success": False, "error": "தவறான அல்லது முடக்கப்பட்ட User Token!"})
+        return jsonify({"success": False, "error": "Invalid or blocked User Token!"})
     sub_map = ABSENTEES_STORE.get(token, {})
     if not sub_map:
-        return jsonify({"success": False, "error": "இந்த Token-க்கு Absentees பட்டியல் எதுவும் சேமிக்கப்படவில்லை."})
+        return jsonify({"success": False, "error": "No Absentees list uploaded for this token."})
     chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
     data = sub_map[chosen]
     log_activity(u, info["dept"], "Extension Mark Absentees", f"பாடம்: {data['subject_code']} ({len(data['absentees'])} பேர்)")
@@ -676,6 +828,32 @@ def api_get_absentees():
         "semester": data.get("semester", ""),
         "subject_code": data["subject_code"],
         "absentees": data["absentees"]
+    })
+
+@app.route("/api/extension/get-practical")
+def api_get_practical():
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    req_sub = request.args.get("subject", "").strip().upper()
+    u, info = find_user_by_token(token)
+    if not info:
+        return jsonify({"success": False, "error": "Invalid or blocked User Token!"})
+    sub_map = PRACTICAL_STORE.get(token, {})
+    if not sub_map:
+        return jsonify({"success": False, "error": "No Practical Marks uploaded for this token."})
+    chosen = req_sub if (req_sub and req_sub in sub_map) else next(iter(sub_map))
+    data = sub_map[chosen]
+    log_activity(u, info["dept"], "Extension Practical Marks", f"பாடம்: {data['subject_code']} ({len(data['records'])} மாணவர்கள்)")
+    return jsonify({
+        "success": True,
+        "degree_type": data.get("degree_type", ""),
+        "degree": data.get("degree", ""),
+        "discipline": data.get("discipline", ""),
+        "semester": data.get("semester", ""),
+        "regulation": data.get("regulation", ""),
+        "exam_type": data.get("exam_type", "External Exam"),
+        "subject_code": data["subject_code"],
+        "records": data["records"]
     })
 
 @app.route("/logout")
