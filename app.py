@@ -311,7 +311,6 @@ DASHBOARD_HTML = """
       உங்கள் Extension Token: <span style="color:#dc2626;">{{ token }}</span>
     </div>
 
-    <!-- 3 முக்கிய பட்டன்கள் -->
     <div class="menu-grid">
       <button type="button" class="menu-btn btn-tab-blue" onclick="openSection('marksSection')">
         1. Internal Marks Entry
@@ -334,12 +333,12 @@ DASHBOARD_HTML = """
         <a href="/download-template/marks" class="tpl-btn">📥 மாதிரி Excel Template பதிவிறக்கம்</a>
       </div>
       <form method="POST" action="/upload-marks" enctype="multipart/form-data">
-        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> மேலே உள்ள Template-ஐ டவுன்லோட் செய்து, அதில் பல பாடங்களின் மதிப்பெண்களை உள்ளிட்டு கீழே பதிவேற்றவும்.</p>
+        <p style="font-size:12px; color:#475569; margin:4px 0;"><b>குறிப்பு:</b> Template-ல் ஒவ்வொரு Sheet-ன் பெயரையும் அந்தந்த <b>Subject Code</b> (உதாரணம்: <code>23UCM11</code>, <code>23UCM12</code>) ஆக வைத்துப் பதிவேற்றவும்.</p>
         <label>பாடக் குறியீடு (ஒரே ஒரு பாடம் எனில் மட்டும்):</label>
-        <input type="text" name="subject_code" placeholder="பல பாடங்கள் Excel-ல் இருந்தால் காலியாக விடலாம்">
+        <input type="text" name="subject_code" placeholder="ஒவ்வொரு Sheet-லும் Subject Code பெயர் இருந்தால் காலியாக விடலாம்">
         <div class="upload-box">
           <div class="upload-row">
-            <label style="margin:0;">எக்செல் கோப்பு (Internal_Marks.xlsx):</label>
+            <label style="margin:0;">எக்செல் கோப்பு (TVU_Internal_Marks_Template.xlsx):</label>
             <a href="/download-template/marks" style="color:#0f766e; font-size:12px; text-decoration:underline;">📥 Download Template (.xlsx)</a>
           </div>
           <input type="file" name="file" accept=".xlsx,.xls" required>
@@ -468,7 +467,7 @@ DASHBOARD_HTML = """
 def download_template(tpl_type):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-       if tpl_type == "marks":
+        if tpl_type == "marks":
             sample_sheets = {
                 "23UCM11": [
                     {"Register No": "20423U10001", "Student Name": "AARTHI K", "Attendance": 5, "Test": 14, "Assignment": 5},
@@ -477,6 +476,10 @@ def download_template(tpl_type):
                 "23UCM12": [
                     {"Register No": "20423U10001", "Student Name": "AARTHI K", "Attendance": 5, "Test": 13, "Assignment": 5},
                     {"Register No": "20423U10002", "Student Name": "BALAJI S", "Attendance": 4, "Test": 11, "Assignment": 4},
+                ],
+                "23UCM13": [
+                    {"Register No": "20423U10001", "Student Name": "AARTHI K", "Attendance": 5, "Test": 15, "Assignment": 5},
+                    {"Register No": "20423U10002", "Student Name": "BALAJI S", "Attendance": 3, "Test": 10, "Assignment": 4},
                 ],
             }
             for sub_name, rows in sample_sheets.items():
