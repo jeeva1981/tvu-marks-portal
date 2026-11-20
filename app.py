@@ -2,6 +2,7 @@ import os
 import io
 import json
 import uuid
+import math
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 from flask import Flask, request, render_template_string, redirect, url_for, session, jsonify, send_file
@@ -14,6 +15,7 @@ CORS(app)
 USERS_FILE = "users.json"
 LOGS_FILE = "activity_logs.json"
 REPORTS_FILE = "exam_reports.json"
+CR1_FILE = "cr1_reports.json"
 
 MARKS_STORE = {}
 ABSENTEES_STORE = {}
@@ -69,6 +71,44 @@ def load_reports():
 def save_reports(records):
     with open(REPORTS_FILE, "w", encoding="utf-8") as f:
         json.dump(records[:2500], f, indent=2, ensure_ascii=False)
+
+def load_cr1_records():
+    if os.path.exists(CR1_FILE):
+        try:
+            with open(CR1_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_cr1_records(records):
+    with open(CR1_FILE, "w", encoding="utf-8") as f:
+        json.dump(records[:3000], f, indent=2, ensure_ascii=False)
+
+def upsert_cr1_rows(token, new_rows):
+    existing = load_cr1_records()
+    for nr in new_rows:
+        r_date = nr.get("date", "")
+        r_sess = nr.get("session", "FN").upper()
+        r_sub = nr.get("subject_code", "").upper()
+        if not r_date or not r_sub:
+            continue
+        existing = [
+            x for x in existing
+            if not (x.get("token") == token and x.get("date") == r_date and x.get("session") == r_sess and x.get("subject_code") == r_sub)
+        ]
+        existing.append({
+            "token": token,
+            "date": r_date,
+            "session": r_sess,
+            "subject_code": r_sub,
+            "depts": nr.get("depts", []),
+            "registered": int(nr.get("registered", 0)),
+            "present": int(nr.get("present", 0)),
+            "absent": int(nr.get("absent", 0)),
+            "synced_at": now_ist()
+        })
+    save_cr1_records(existing)
 
 def upsert_report_entry(entry):
     records = load_reports()
@@ -332,7 +372,7 @@ DASHBOARD_HTML = """
   <title>College Automation Portal - Dashboard</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; margin: 0; }
-    .container { max-width: 1020px; margin: 15px auto; }
+    .container { max-width: 1050px; margin: 15px auto; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
     .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
@@ -358,6 +398,7 @@ DASHBOARD_HTML = """
     .btn-blue { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
     .btn-red { width: 100%; padding: 11px; background: #dc2626; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
     .btn-purple { width: 100%; padding: 11px; background: #7c3aed; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
+    .btn-teal { width: 100%; padding: 11px; background: #0f766e; color: white; border: none; border-radius: 5px; font-weight: bold; margin-top: 15px; cursor: pointer; font-size: 14px; }
     .msg-ok { background: #dcfce7; border-left: 4px solid #16a34a; padding: 12px; margin-top: 15px; font-size: 13px; line-height: 1.5; }
     .status-panel { margin-top: 22px; border-top: 2px solid #e2e8f0; padding-top: 15px; }
     .status-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
@@ -386,7 +427,7 @@ DASHBOARD_HTML = """
 
     <div class="token-bar">
       <div>Extension Token: <span style="color:#dc2626;">{{ token }}</span></div>
-      <div style="font-size:12px; color:#334155;">Today: {{ today_disp }} ({{ current_sess }} Session)</div>
+      <div style="font-size:12px; color:#334155;">Today: {{ today_disp }} ({{ current_sess }} Session) | Auto-Synced CR-1 Records: <b>{{ cr1_total_saved }}</b></div>
     </div>
 
     <!-- 4 Main Navigation Buttons -->
@@ -401,11 +442,11 @@ DASHBOARD_HTML = """
         3. Practical Mark Entry
       </button>
       <button type="button" class="menu-btn btn-tab-teal" onclick="openSection('reportSection')">
-        4. Reports & Print Abstract
+        4. PROFORMA CR-1 & Reports
       </button>
     </div>
 
-    <!-- 1. Attendance Entry + Date-Range FN/AN Live Tracker -->
+    <!-- 1. Attendance Entry -->
     <div id="absSection" class="card {% if active_tab == 'abs' %}active{% endif %}">
       <div class="card-head">
         <h3 style="color:#dc2626;">1. Attendance Entry (FN / AN Session)</h3>
@@ -479,7 +520,7 @@ DASHBOARD_HTML = """
               </select>
               <button type="submit" class="tpl-btn" style="border:none; cursor:pointer;">Filter</button>
             </form>
-            <a href="/print-report/attendance?from_date={{ from_date }}&to_date={{ to_date }}&sess={{ selected_sess }}" target="_blank" class="print-btn">🖨️ Print Abstract</a>
+            <a href="/print-report/cr1?from_date={{ from_date }}&to_date={{ to_date }}&sess={{ selected_sess }}" target="_blank" class="print-btn">🖨️ Print PROFORMA CR-1</a>
           </div>
         </div>
         <div class="summary-boxes">
@@ -514,7 +555,7 @@ DASHBOARD_HTML = """
       </div>
     </div>
 
-    <!-- 2. Internal Mark Entry + Live Status & Print Abstract -->
+    <!-- 2. Internal Mark Entry -->
     <div id="marksSection" class="card {% if active_tab == 'marks' %}active{% endif %}">
       <div class="card-head">
         <h3 style="color:#1e3a8a;">2. Internal Mark Entry</h3>
@@ -581,7 +622,7 @@ DASHBOARD_HTML = """
       </div>
     </div>
 
-    <!-- 3. Practical Mark Entry + Live Status & Print Abstract -->
+    <!-- 3. Practical Mark Entry -->
     <div id="pracSection" class="card {% if active_tab == 'prac' %}active{% endif %}">
       <div class="card-head">
         <h3 style="color:#7c3aed;">3. Practical Mark Entry</h3>
@@ -665,14 +706,33 @@ DASHBOARD_HTML = """
       </div>
     </div>
 
-    <!-- 4. Consolidated Reports & Date-Range Print Center -->
+    <!-- 4. PROFORMA CR-1 & Consolidated Reports Center -->
     <div id="reportSection" class="card {% if active_tab == 'report' %}active{% endif %}">
       <div class="card-head">
-        <h3 style="color:#0f766e;">4. Consolidated Reports & Date-Range Abstract Center</h3>
+        <h3 style="color:#0f766e;">4. Official PROFORMA CR-1 & Consolidated Reports Center</h3>
       </div>
       <div class="row3">
+        <div class="upload-box" style="text-align:center; border-color:#0f766e; background:#f0fdfa;">
+          <h4 style="margin:0 0 6px 0; color:#0f766e;">Official PROFORMA CR-1 (TVU Format)</h4>
+          <p style="font-size:11px; color:#334155; margin:0 0 6px 0;">Answer Booklet Collection Report (Auto-Synced from TVU)</p>
+          <form method="GET" action="/print-report/cr1" target="_blank" style="margin:0;">
+            <label style="text-align:left;">From Date:</label>
+            <input type="date" name="from_date" value="{{ from_date }}" required>
+            <label style="text-align:left;">To Date:</label>
+            <input type="date" name="to_date" value="{{ to_date }}" required>
+            <label style="text-align:left;">Session:</label>
+            <select name="sess">
+              <option value="ALL">All (FN & AN)</option>
+              <option value="FN">FN (Forenoon)</option>
+              <option value="AN">AN (Afternoon)</option>
+            </select>
+            <button type="submit" class="btn-teal">🖨️ Print PROFORMA CR-1</button>
+          </form>
+        </div>
+
         <div class="upload-box" style="text-align:center;">
-          <h4 style="margin:0 0 8px 0; color:#dc2626;">Date-Range Attendance Abstract</h4>
+          <h4 style="margin:0 0 6px 0; color:#dc2626;">Department Attendance Abstract</h4>
+          <p style="font-size:11px; color:#334155; margin:0 0 6px 0;">With Absentee Register Numbers List</p>
           <form method="GET" action="/print-report/attendance" target="_blank" style="margin:0;">
             <label style="text-align:left;">From Date:</label>
             <input type="date" name="from_date" value="{{ from_date }}" required>
@@ -689,16 +749,34 @@ DASHBOARD_HTML = """
         </div>
 
         <div class="upload-box" style="text-align:center;">
-          <h4 style="margin:0 0 8px 0; color:#1e3a8a;">Internal Marks Abstract</h4>
-          <p style="font-size:12px; color:#475569;">Completed: <b>{{ int_done }}</b> | Pending: <b>{{ int_pend }}</b></p>
-          <a href="/print-report/internal" target="_blank" class="btn-blue" style="display:block; box-sizing:border-box; margin-top:76px;">🖨️ Print Internal Abstract</a>
+          <h4 style="margin:0 0 8px 0; color:#1e3a8a;">Internal & Practical Abstracts</h4>
+          <p style="font-size:12px; color:#475569;">Internal Completed: <b>{{ int_done }}</b> | Pending: <b>{{ int_pend }}</b></p>
+          <a href="/print-report/internal" target="_blank" class="btn-blue" style="display:block; box-sizing:border-box;">🖨️ Print Internal Abstract</a>
+          <p style="font-size:12px; color:#475569; margin-top:16px;">Practical Completed: <b>{{ prac_done }}</b> | Pending: <b>{{ prac_pend }}</b></p>
+          <a href="/print-report/practical" target="_blank" class="btn-purple" style="display:block; box-sizing:border-box;">🖨️ Print Practical Abstract</a>
         </div>
+      </div>
 
-        <div class="upload-box" style="text-align:center;">
-          <h4 style="margin:0 0 8px 0; color:#7c3aed;">Practical Marks Abstract</h4>
-          <p style="font-size:12px; color:#475569;">Completed: <b>{{ prac_done }}</b> | Pending: <b>{{ prac_pend }}</b></p>
-          <a href="/print-report/practical" target="_blank" class="btn-purple" style="display:block; box-sizing:border-box; margin-top:76px;">🖨️ Print Practical Abstract</a>
-        </div>
+      <div class="status-panel">
+        <h4 style="margin:0 0 8px 0; color:#0f766e;">Auto-Synced TVU CR-1 Records Stored on Server ({{ cr1_rows|length }})</h4>
+        <table>
+          <tr><th>SL.no</th><th>Date of Exam</th><th>Session</th><th>Subject Code</th><th>Registered</th><th>Present</th><th>Absent</th><th>Covers (30/Cover)</th><th>Synced At</th></tr>
+          {% for c in cr1_rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td><b>{{ c.date_disp }}</b></td>
+            <td><b>{{ c.session }}</b></td>
+            <td><b>{{ c.subject_code }}</b> {% if c.depts %}({{ c.depts|join(', ') }}){% endif %}</td>
+            <td>{{ c.registered }}</td>
+            <td style="color:#16a34a; font-weight:bold;">{{ c.present }}</td>
+            <td style="color:#dc2626; font-weight:bold;">{{ c.absent }}</td>
+            <td><b>{{ c.covers }}</b></td>
+            <td style="font-size:11px;">{{ c.synced_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" style="text-align:center; color:#64748b;">No CR-1 records synced yet. Click "⚡ Auto-Fetch & Generate CR-1" in Chrome Extension on coe.tvu.edu.in.</td></tr>
+          {% endfor %}
+        </table>
       </div>
     </div>
   </div>
@@ -712,6 +790,110 @@ DASHBOARD_HTML = """
       document.getElementById(sectionId).classList.add('active');
     }
   </script>
+</body>
+</html>
+"""
+
+CR1_PRINT_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PROFORMA CR-1 - Answer Booklet Collection Report</title>
+  <style>
+    body { font-family: 'Times New Roman', serif; margin: 22px; color: #000; }
+    .no-print { background: #1e3a8a; color: #fff; padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; font-family: 'Segoe UI', sans-serif; font-size: 13px; }
+    .no-print button { background: #16a34a; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .proforma-box { border: 1.5px solid #000; padding: 4px 12px; font-weight: bold; font-size: 13px; text-align: center; }
+    .univ-head { text-align: center; flex: 1; }
+    .univ-head h1 { margin: 0; font-size: 19px; letter-spacing: 0.5px; }
+    .univ-head h2 { margin: 3px 0; font-size: 14px; font-weight: bold; }
+    .univ-head h3 { margin: 4px 0 8px 0; font-size: 15px; text-decoration: underline; }
+    .college-box { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 13px; font-weight: bold; }
+    .college-box td { border: 1.5px solid #000; padding: 6px 10px; }
+    .period-line { font-size: 12.5px; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; }
+    table.cr1 { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.cr1 th, table.cr1 td { border: 1.5px solid #000; padding: 6px 6px; text-align: center; }
+    table.cr1 th { background: #f1f5f9; font-weight: bold; }
+    .tot-row td { font-weight: bold; background: #f8fafc; }
+    .sign-grid { display: flex; justify-content: space-between; margin-top: 65px; font-size: 13px; font-weight: bold; }
+    .sign-col { width: 32%; }
+    @media print { .no-print { display: none; } body { margin: 8mm; } }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <span><b>PROFORMA CR-1 Ready</b> — Click any "Total no. of Covers" cell to edit before printing</span>
+    <button onclick="window.print()">🖨️ Print CR-1 Report</button>
+  </div>
+
+  <div class="top-bar">
+    <div style="width:110px;"></div>
+    <div class="univ-head">
+      <h1>THIRUVALLUVAR UNIVERSITY</h1>
+      <h2>VELLORE - 632 115</h2>
+      <h2>THEORY EXAMINATIONS NOV / DEC - 2026</h2>
+      <h3>ANSWER BOOKLET COLLECTION REPORT</h3>
+    </div>
+    <div class="proforma-box">PROFORMA<br>CR-1</div>
+  </div>
+
+  <table class="college-box">
+    <tr>
+      <td style="width:72%;">COLLEGE NAME : KALAIGNAR KARUNANIDHI GOVERNMENT ARTS COLLEGE, TIRUVANNAMALAI</td>
+      <td style="width:28%;">CODE : 204</td>
+    </tr>
+  </table>
+
+  <div class="period-line">
+    <span>Report Period: {{ range_disp }} | Session: {{ selected_sess }}</span>
+    <span>Printed On: {{ printed_on }}</span>
+  </div>
+
+  <table class="cr1">
+    <thead>
+      <tr>
+        <th style="width:6%;">SL.no</th>
+        <th style="width:12%;">Date of Exam</th>
+        <th style="width:8%;">Session</th>
+        <th style="width:19%;">Subject Code</th>
+        <th style="width:14%;">Total no. of Candidates Registered</th>
+        <th style="width:14%;">Total no. of Candidates Present</th>
+        <th style="width:14%;">Total no. of Candidates Absent</th>
+        <th style="width:13%;">Total no. of Covers</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in cr1_rows %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r.date_disp }}</td>
+        <td>{{ r.session }}</td>
+        <td style="font-weight:bold;">{{ r.subject_code }} {% if r.depts %}<span style="font-weight:normal; font-size:10.5px;">({{ r.depts|join(', ') }})</span>{% endif %}</td>
+        <td>{{ r.registered }}</td>
+        <td>{{ r.present }}</td>
+        <td>{{ r.absent }}</td>
+        <td contenteditable="true">{{ r.covers }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" style="padding:16px; color:#b91c1c;">No synced CR-1 records found for {{ range_disp }} ({{ selected_sess }}).</td></tr>
+      {% endfor %}
+      <tr class="tot-row">
+        <td colspan="4" style="text-align:right; padding-right:10px;">TOTAL</td>
+        <td>{{ totals.registered }}</td>
+        <td>{{ totals.present }}</td>
+        <td>{{ totals.absent }}</td>
+        <td>{{ totals.covers }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sign-grid">
+    <div class="sign-col">Chief Superintendent<br>(Seal with Name)<br><br>Date:</div>
+    <div class="sign-col">University Personnel - I<br>Name:<br><br>Date:</div>
+    <div class="sign-col">University Personnel - II<br>Name:<br><br>Date:</div>
+  </div>
 </body>
 </html>
 """
@@ -735,10 +917,7 @@ PRINT_HTML = """
     th { background: #f1f5f9; }
     .totals-row td { font-weight: bold; background: #f8fafc; }
     .sign-row { display: flex; justify-content: space-between; margin-top: 55px; font-weight: bold; font-size: 13px; }
-    @media print {
-      .no-print { display: none; }
-      body { padding: 0; }
-    }
+    @media print { .no-print { display: none; } body { padding: 0; } }
   </style>
 </head>
 <body>
@@ -746,46 +925,30 @@ PRINT_HTML = """
     <span>Print Preview Ready — Click Print to save as PDF or print on A4 paper.</span>
     <button onclick="window.print()">🖨️ Print Now</button>
   </div>
-
   <div class="header-box">
     <h2>Kalaignar Karunanidhi Government Arts College (204)</h2>
     <h3>{{ title }}</h3>
   </div>
-
   <div class="meta">
     <span>Department: {{ dept }}</span>
     <span>{{ subtitle }}</span>
     <span>Printed On: {{ printed_on }}</span>
   </div>
-
   <table>
     <thead>
-      <tr>
-        {% for h in headers %}
-        <th>{{ h }}</th>
-        {% endfor %}
-      </tr>
+      <tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr>
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr>
-        {% for cell in row %}
-        <td>{{ cell }}</td>
-        {% endfor %}
-      </tr>
+      <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
       {% else %}
       <tr><td colspan="{{ headers|length }}" style="text-align:center;">No records found for this selection.</td></tr>
       {% endfor %}
       {% if footer_row %}
-      <tr class="totals-row">
-        {% for cell in footer_row %}
-        <td>{{ cell }}</td>
-        {% endfor %}
-      </tr>
+      <tr class="totals-row">{% for cell in footer_row %}<td>{{ cell }}</td>{% endfor %}</tr>
       {% endif %}
     </tbody>
   </table>
-
   <div class="sign-row">
     <span>Signature of Faculty / Staff In-Charge</span>
     <span>Head of the Department</span>
@@ -935,6 +1098,41 @@ def date_in_range(d_str, from_d, to_d):
         return False
     return True
 
+def get_filtered_cr1_rows(token, from_date, to_date, selected_sess):
+    all_cr1 = [r for r in load_cr1_records() if r.get("token") == token]
+    filtered = []
+    for r in all_cr1:
+        d = r.get("date", "")
+        s = r.get("session", "FN")
+        if not date_in_range(d, from_date, to_date):
+            continue
+        if selected_sess and selected_sess != "ALL" and s != selected_sess:
+            continue
+        pres = int(r.get("present", 0))
+        reg = int(r.get("registered", 0))
+        ab = int(r.get("absent", 0))
+        cov = math.ceil(pres / 30) if pres > 0 else 0
+        filtered.append({
+            "date": d,
+            "date_disp": display_date_ist(d),
+            "session": s,
+            "subject_code": r.get("subject_code", ""),
+            "depts": r.get("depts", []),
+            "registered": reg,
+            "present": pres,
+            "absent": ab,
+            "covers": cov,
+            "synced_at": r.get("synced_at", "")
+        })
+    filtered.sort(key=lambda x: (x["date"], 0 if x["session"] == "FN" else 1, x["subject_code"]))
+    totals = {
+        "registered": sum(x["registered"] for x in filtered),
+        "present": sum(x["present"] for x in filtered),
+        "absent": sum(x["absent"] for x in filtered),
+        "covers": sum(x["covers"] for x in filtered)
+    }
+    return filtered, totals
+
 def build_status_views(token, from_date, to_date, selected_sess):
     all_reports = [r for r in load_reports() if r.get("token") == token]
 
@@ -988,7 +1186,6 @@ def build_status_views(token, from_date, to_date, selected_sess):
                 "status": "Pending"
             })
 
-    # Sort chronologically by Date and Session (FN before AN)
     att_rows.sort(key=lambda x: (x["date"], 0 if x["session"] == "FN" else 1, x["discipline"], x["subject_code"]))
 
     att_summary = {
@@ -1075,6 +1272,8 @@ def dashboard():
     active_tab = request.args.get("tab", session.pop("active_tab", "abs"))
 
     att_rows, att_summary, int_rows, prac_rows = build_status_views(token, from_date, to_date, selected_sess)
+    cr1_rows, _ = get_filtered_cr1_rows(token, from_date, to_date, selected_sess)
+    cr1_total_saved = sum(1 for r in load_cr1_records() if r.get("token") == token)
     range_disp = display_date_ist(from_date) if from_date == to_date else f"{display_date_ist(from_date)} to {display_date_ist(to_date)}"
 
     return render_template_string(
@@ -1091,6 +1290,8 @@ def dashboard():
         active_tab=active_tab,
         att_rows=att_rows,
         att_summary=att_summary,
+        cr1_rows=cr1_rows,
+        cr1_total_saved=cr1_total_saved,
         int_rows=int_rows,
         prac_rows=prac_rows,
         int_done=sum(1 for x in int_rows if x["status"] == "Completed"),
@@ -1118,8 +1319,20 @@ def print_report(rep_type):
         from_date, to_date = to_date, from_date
 
     selected_sess = request.args.get("sess", "ALL")
-    att_rows, att_summary, int_rows, prac_rows = build_status_views(token, from_date, to_date, selected_sess)
     range_disp = display_date_ist(from_date) if from_date == to_date else f"{display_date_ist(from_date)} to {display_date_ist(to_date)}"
+
+    if rep_type == "cr1":
+        cr1_rows, totals = get_filtered_cr1_rows(token, from_date, to_date, selected_sess)
+        return render_template_string(
+            CR1_PRINT_HTML,
+            cr1_rows=cr1_rows,
+            totals=totals,
+            range_disp=range_disp,
+            selected_sess=selected_sess,
+            printed_on=now_ist()
+        )
+
+    att_rows, att_summary, int_rows, prac_rows = build_status_views(token, from_date, to_date, selected_sess)
 
     if rep_type == "attendance":
         title = f"Consolidated Exam Attendance Abstract ({range_disp})"
@@ -1432,6 +1645,20 @@ def upload_practical():
     session["prac_msg"] = f"Ready! Separated into {len(groups_map)} UG/PG discipline groups: {summary}."
     session["active_tab"] = "prac"
     return redirect(url_for("dashboard"))
+
+@app.route("/api/extension/sync-cr1", methods=["POST"])
+def api_sync_cr1():
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    u, info = find_user_by_token(token)
+    if not info:
+        return jsonify({"success": False, "error": "Invalid User Token"})
+
+    payload = request.get_json(silent=True) or {}
+    rows = payload.get("rows", [])
+    upsert_cr1_rows(token, rows)
+    log_activity(u, info["dept"], "CR-1 Auto Sync", f"Synced {len(rows)} subjects ({payload.get('from_date', '')} to {payload.get('to_date', '')})")
+    return jsonify({"success": True, "synced_count": len(rows)})
 
 @app.route("/api/extension/report-status", methods=["POST"])
 def api_report_status():
