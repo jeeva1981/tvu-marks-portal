@@ -68,7 +68,7 @@ def load_reports():
 
 def save_reports(records):
     with open(REPORTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(records[:1500], f, indent=2, ensure_ascii=False)
+        json.dump(records[:2500], f, indent=2, ensure_ascii=False)
 
 def upsert_report_entry(entry):
     records = load_reports()
@@ -332,7 +332,7 @@ DASHBOARD_HTML = """
   <title>College Automation Portal - Dashboard</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; margin: 0; }
-    .container { max-width: 960px; margin: 15px auto; }
+    .container { max-width: 1020px; margin: 15px auto; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
     .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
     .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
@@ -365,12 +365,12 @@ DASHBOARD_HTML = """
     .s-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; text-align: center; }
     .s-box .num { font-size: 20px; font-weight: bold; color: #1e3a8a; }
     .s-box .lbl { font-size: 11px; color: #475569; font-weight: bold; text-transform: uppercase; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; }
-    th, td { padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    th, td { padding: 7px 8px; border: 1px solid #cbd5e1; text-align: left; }
     th { background: #f1f5f9; color: #1e293b; }
-    .st-done { background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
-    .st-wait { background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
-    .st-pend { background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+    .st-done { background: #dcfce7; color: #166534; padding: 3px 7px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+    .st-wait { background: #dbeafe; color: #1e40af; padding: 3px 7px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+    .st-pend { background: #fef3c7; color: #92400e; padding: 3px 7px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
     a { color: white; text-decoration: none; font-weight: bold; }
   </style>
 </head>
@@ -379,7 +379,7 @@ DASHBOARD_HTML = """
     <div class="header">
       <div><b>{{ dept }}</b> ({{ username }})</div>
       <div>
-        <a href="/dashboard?date={{ selected_date }}&sess={{ selected_sess }}" style="margin-right:15px;">↻ Refresh Status</a>
+        <a href="/dashboard?from_date={{ from_date }}&to_date={{ to_date }}&sess={{ selected_sess }}" style="margin-right:15px;">↻ Refresh Status</a>
         <a href="/logout">Logout</a>
       </div>
     </div>
@@ -405,7 +405,7 @@ DASHBOARD_HTML = """
       </button>
     </div>
 
-    <!-- 1. Attendance Entry + Daily FN/AN Live Tracker -->
+    <!-- 1. Attendance Entry + Date-Range FN/AN Live Tracker -->
     <div id="absSection" class="card {% if active_tab == 'abs' %}active{% endif %}">
       <div class="card-head">
         <h3 style="color:#dc2626;">1. Attendance Entry (FN / AN Session)</h3>
@@ -415,7 +415,7 @@ DASHBOARD_HTML = """
         <div class="row3">
           <div>
             <label>Exam Date:</label>
-            <input type="date" name="exam_date" value="{{ selected_date }}">
+            <input type="date" name="exam_date" value="{{ to_date }}">
           </div>
           <div>
             <label>Session (FN / AN):</label>
@@ -464,11 +464,14 @@ DASHBOARD_HTML = """
 
       <div class="status-panel">
         <div class="status-header">
-          <h4 style="margin:0; color:#1e3a8a;">Daily Attendance Tracker ({{ selected_date_disp }} - {{ selected_sess }})</h4>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <form method="GET" action="/dashboard" style="display:flex; gap:6px; margin:0;">
+          <h4 style="margin:0; color:#1e3a8a;">Attendance Abstract ({{ range_disp }} | {{ selected_sess }})</h4>
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <form method="GET" action="/dashboard" style="display:flex; gap:5px; align-items:center; margin:0; flex-wrap:wrap;">
               <input type="hidden" name="tab" value="abs">
-              <input type="date" name="date" value="{{ selected_date }}" style="width:140px; margin:0; padding:5px;">
+              <span style="font-size:11px; font-weight:bold;">From:</span>
+              <input type="date" name="from_date" value="{{ from_date }}" style="width:130px; margin:0; padding:5px;">
+              <span style="font-size:11px; font-weight:bold;">To:</span>
+              <input type="date" name="to_date" value="{{ to_date }}" style="width:130px; margin:0; padding:5px;">
               <select name="sess" style="width:95px; margin:0; padding:5px;">
                 <option value="ALL" {% if selected_sess == 'ALL' %}selected{% endif %}>All (FN+AN)</option>
                 <option value="FN" {% if selected_sess == 'FN' %}selected{% endif %}>FN Only</option>
@@ -476,19 +479,20 @@ DASHBOARD_HTML = """
               </select>
               <button type="submit" class="tpl-btn" style="border:none; cursor:pointer;">Filter</button>
             </form>
-            <a href="/print-report/attendance?date={{ selected_date }}&sess={{ selected_sess }}" target="_blank" class="print-btn">🖨️ Print Attendance Report</a>
+            <a href="/print-report/attendance?from_date={{ from_date }}&to_date={{ to_date }}&sess={{ selected_sess }}" target="_blank" class="print-btn">🖨️ Print Abstract</a>
           </div>
         </div>
         <div class="summary-boxes">
-          <div class="s-box"><div class="num">{{ att_summary.subjects }}</div><div class="lbl">Subjects Tracked</div></div>
+          <div class="s-box"><div class="num">{{ att_summary.subjects }}</div><div class="lbl">Exams / Subjects</div></div>
           <div class="s-box"><div class="num">{{ att_summary.total }}</div><div class="lbl">Total Students</div></div>
           <div class="s-box"><div class="num" style="color:#16a34a;">{{ att_summary.present }}</div><div class="lbl">Present</div></div>
           <div class="s-box"><div class="num" style="color:#dc2626;">{{ att_summary.absent }}</div><div class="lbl">Absent</div></div>
         </div>
         <table>
-          <tr><th>Session</th><th>UG/PG</th><th>Discipline</th><th>Subject Code & Title</th><th>Total</th><th>Present</th><th>Absent</th><th>Absent Reg Nos</th><th>Status</th></tr>
+          <tr><th>Exam Date</th><th>Session</th><th>UG/PG</th><th>Discipline</th><th>Subject Code & Title</th><th>Total</th><th>Present</th><th>Absent</th><th>Absent Reg Nos</th><th>Status</th></tr>
           {% for r in att_rows %}
           <tr>
+            <td style="white-space:nowrap;"><b>{{ r.date_disp }}</b></td>
             <td><b>{{ r.session }}</b></td>
             <td>{{ r.deg_tag }}</td>
             <td>{{ r.discipline }}</td>
@@ -504,7 +508,7 @@ DASHBOARD_HTML = """
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="9" style="text-align:center; color:#64748b;">No attendance records for this date yet.</td></tr>
+          <tr><td colspan="10" style="text-align:center; color:#64748b;">No attendance records found in this date range.</td></tr>
           {% endfor %}
         </table>
       </div>
@@ -661,37 +665,39 @@ DASHBOARD_HTML = """
       </div>
     </div>
 
-    <!-- 4. Consolidated Reports & Date-wise Print Center -->
+    <!-- 4. Consolidated Reports & Date-Range Print Center -->
     <div id="reportSection" class="card {% if active_tab == 'report' %}active{% endif %}">
       <div class="card-head">
-        <h3 style="color:#0f766e;">4. Consolidated Reports & Print Center</h3>
+        <h3 style="color:#0f766e;">4. Consolidated Reports & Date-Range Abstract Center</h3>
       </div>
       <div class="row3">
         <div class="upload-box" style="text-align:center;">
-          <h4 style="margin:0 0 8px 0; color:#dc2626;">Daily Attendance Report</h4>
+          <h4 style="margin:0 0 8px 0; color:#dc2626;">Date-Range Attendance Abstract</h4>
           <form method="GET" action="/print-report/attendance" target="_blank" style="margin:0;">
-            <label style="text-align:left;">Select Date:</label>
-            <input type="date" name="date" value="{{ selected_date }}" required>
+            <label style="text-align:left;">From Date:</label>
+            <input type="date" name="from_date" value="{{ from_date }}" required>
+            <label style="text-align:left;">To Date:</label>
+            <input type="date" name="to_date" value="{{ to_date }}" required>
             <label style="text-align:left;">Session:</label>
             <select name="sess">
               <option value="ALL">All (FN & AN)</option>
               <option value="FN">FN (Forenoon)</option>
               <option value="AN">AN (Afternoon)</option>
             </select>
-            <button type="submit" class="btn-red">🖨️ Print Attendance Report</button>
+            <button type="submit" class="btn-red">🖨️ Print Attendance Abstract</button>
           </form>
         </div>
 
         <div class="upload-box" style="text-align:center;">
           <h4 style="margin:0 0 8px 0; color:#1e3a8a;">Internal Marks Abstract</h4>
           <p style="font-size:12px; color:#475569;">Completed: <b>{{ int_done }}</b> | Pending: <b>{{ int_pend }}</b></p>
-          <a href="/print-report/internal" target="_blank" class="btn-blue" style="display:block; box-sizing:border-box; margin-top:34px;">🖨️ Print Internal Abstract</a>
+          <a href="/print-report/internal" target="_blank" class="btn-blue" style="display:block; box-sizing:border-box; margin-top:76px;">🖨️ Print Internal Abstract</a>
         </div>
 
         <div class="upload-box" style="text-align:center;">
           <h4 style="margin:0 0 8px 0; color:#7c3aed;">Practical Marks Abstract</h4>
           <p style="font-size:12px; color:#475569;">Completed: <b>{{ prac_done }}</b> | Pending: <b>{{ prac_pend }}</b></p>
-          <a href="/print-report/practical" target="_blank" class="btn-purple" style="display:block; box-sizing:border-box; margin-top:34px;">🖨️ Print Practical Abstract</a>
+          <a href="/print-report/practical" target="_blank" class="btn-purple" style="display:block; box-sizing:border-box; margin-top:76px;">🖨️ Print Practical Abstract</a>
         </div>
       </div>
     </div>
@@ -724,8 +730,8 @@ PRINT_HTML = """
     .header-box h2 { margin: 0; font-size: 18px; text-transform: uppercase; }
     .header-box h3 { margin: 4px 0; font-size: 15px; }
     .meta { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border: 1px solid #000; padding: 7px 8px; text-align: left; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { border: 1px solid #000; padding: 6px 7px; text-align: left; }
     th { background: #f1f5f9; }
     .totals-row td { font-weight: bold; background: #f8fafc; }
     .sign-row { display: flex; justify-content: space-between; margin-top: 55px; font-weight: bold; font-size: 13px; }
@@ -920,21 +926,34 @@ def admin_toggle(username):
         save_users(users)
     return redirect(url_for("admin_panel"))
 
-def build_status_views(token, selected_date, selected_sess):
+def date_in_range(d_str, from_d, to_d):
+    if not d_str:
+        return False
+    if from_d and d_str < from_d:
+        return False
+    if to_d and d_str > to_d:
+        return False
+    return True
+
+def build_status_views(token, from_date, to_date, selected_sess):
     all_reports = [r for r in load_reports() if r.get("token") == token]
 
     att_rows = []
-    seen_att_keys = set()
+    seen_att_tuples = set()
     for r in all_reports:
         if r.get("module") != "attendance":
             continue
-        if selected_date and r.get("date") != selected_date:
+        r_date = r.get("date", "")
+        r_sess = r.get("session", "")
+        if not date_in_range(r_date, from_date, to_date):
             continue
-        if selected_sess and selected_sess != "ALL" and r.get("session") != selected_sess:
+        if selected_sess and selected_sess != "ALL" and r_sess != selected_sess:
             continue
-        seen_att_keys.add(r.get("group_key"))
+        seen_att_tuples.add((r.get("group_key"), r_date, r_sess))
         att_rows.append({
-            "session": r.get("session", ""),
+            "date": r_date,
+            "date_disp": display_date_ist(r_date),
+            "session": r_sess,
             "deg_tag": normalize_deg_tag(r.get("degree_type", "")),
             "discipline": r.get("discipline", ""),
             "subject_code": r.get("subject_code", ""),
@@ -949,12 +968,14 @@ def build_status_views(token, selected_date, selected_sess):
     for gkey, gdata in ABSENTEES_STORE.get(token, {}).items():
         g_date = gdata.get("exam_date", today_date_ist())
         g_sess = gdata.get("exam_session", "FN")
-        if selected_date and g_date != selected_date:
+        if not date_in_range(g_date, from_date, to_date):
             continue
         if selected_sess and selected_sess != "ALL" and g_sess != selected_sess:
             continue
-        if gkey not in seen_att_keys:
+        if (gkey, g_date, g_sess) not in seen_att_tuples:
             att_rows.append({
+                "date": g_date,
+                "date_disp": display_date_ist(g_date),
                 "session": g_sess,
                 "deg_tag": normalize_deg_tag(gdata.get("degree_type", "")),
                 "discipline": gdata.get("discipline", ""),
@@ -966,6 +987,9 @@ def build_status_views(token, selected_date, selected_sess):
                 "absent_regs": ", ".join(gdata.get("absentees", [])) or "NIL",
                 "status": "Pending"
             })
+
+    # Sort chronologically by Date and Session (FN before AN)
+    att_rows.sort(key=lambda x: (x["date"], 0 if x["session"] == "FN" else 1, x["discipline"], x["subject_code"]))
 
     att_summary = {
         "subjects": len(att_rows),
@@ -1041,11 +1065,17 @@ def dashboard():
     info = users[u]
     token = info["token"]
 
-    selected_date = request.args.get("date", today_date_ist())
+    single_date = request.args.get("date")
+    from_date = request.args.get("from_date") or single_date or today_date_ist()
+    to_date = request.args.get("to_date") or single_date or today_date_ist()
+    if from_date > to_date:
+        from_date, to_date = to_date, from_date
+
     selected_sess = request.args.get("sess", "ALL")
     active_tab = request.args.get("tab", session.pop("active_tab", "abs"))
 
-    att_rows, att_summary, int_rows, prac_rows = build_status_views(token, selected_date, selected_sess)
+    att_rows, att_summary, int_rows, prac_rows = build_status_views(token, from_date, to_date, selected_sess)
+    range_disp = display_date_ist(from_date) if from_date == to_date else f"{display_date_ist(from_date)} to {display_date_ist(to_date)}"
 
     return render_template_string(
         DASHBOARD_HTML,
@@ -1054,8 +1084,9 @@ def dashboard():
         token=token,
         today_disp=display_date_ist(today_date_ist()),
         current_sess=current_session_ist(),
-        selected_date=selected_date,
-        selected_date_disp=display_date_ist(selected_date),
+        from_date=from_date,
+        to_date=to_date,
+        range_disp=range_disp,
         selected_sess=selected_sess,
         active_tab=active_tab,
         att_rows=att_rows,
@@ -1080,19 +1111,25 @@ def print_report(rep_type):
     info = users[u]
     token = info["token"]
 
-    selected_date = request.args.get("date", today_date_ist())
+    single_date = request.args.get("date")
+    from_date = request.args.get("from_date") or single_date or today_date_ist()
+    to_date = request.args.get("to_date") or single_date or today_date_ist()
+    if from_date > to_date:
+        from_date, to_date = to_date, from_date
+
     selected_sess = request.args.get("sess", "ALL")
-    att_rows, att_summary, int_rows, prac_rows = build_status_views(token, selected_date, selected_sess)
+    att_rows, att_summary, int_rows, prac_rows = build_status_views(token, from_date, to_date, selected_sess)
+    range_disp = display_date_ist(from_date) if from_date == to_date else f"{display_date_ist(from_date)} to {display_date_ist(to_date)}"
 
     if rep_type == "attendance":
-        title = f"Daily Exam Attendance Report ({display_date_ist(selected_date)})"
-        subtitle = f"Date: {display_date_ist(selected_date)} | Session: {selected_sess}"
-        headers = ["S.No", "Session", "UG/PG", "Discipline", "Subject Code & Title", "Total", "Present", "Absent", "Absent Register Numbers", "Status"]
+        title = f"Consolidated Exam Attendance Abstract ({range_disp})"
+        subtitle = f"Period: {range_disp} | Session: {selected_sess} | Completed: {sum(1 for x in att_rows if x['status']=='Completed')} / {len(att_rows)}"
+        headers = ["S.No", "Exam Date", "Session", "UG/PG", "Discipline", "Subject Code & Title", "Total", "Present", "Absent", "Absent Register Numbers", "TVU Portal Status"]
         rows = [
-            [i + 1, r["session"], r["deg_tag"], r["discipline"], f"{r['subject_code']} {r['subject_title']}", r["total"], r["present"], r["absent"], r["absent_regs"], r["status"]]
+            [i + 1, r["date_disp"], r["session"], r["deg_tag"], r["discipline"], f"{r['subject_code']} {r['subject_title']}", r["total"], r["present"], r["absent"], r["absent_regs"], r["status"]]
             for i, r in enumerate(att_rows)
         ]
-        footer = ["", "", "", "", "GRAND TOTAL", att_summary["total"], att_summary["present"], att_summary["absent"], "", ""]
+        footer = ["", "", "", "", "", "GRAND TOTAL", att_summary["total"], att_summary["present"], att_summary["absent"], "", ""]
     elif rep_type == "internal":
         title = "Internal Marks Entry Status Abstract"
         subtitle = f"Completed: {sum(1 for x in int_rows if x['status']=='Completed')} | Pending: {sum(1 for x in int_rows if x['status']!='Completed')}"
@@ -1296,7 +1333,7 @@ def upload_absentees():
     log_activity(u, users[u]["dept"], "Absentees Upload", f"[{exam_session}] {len(groups_map)} groups: {summary}")
     session["abs_msg"] = f"Ready! Saved for {display_date_ist(exam_date)} ({exam_session}): {summary}."
     session["active_tab"] = "abs"
-    return redirect(url_for("dashboard", date=exam_date, sess=exam_session))
+    return redirect(url_for("dashboard", from_date=exam_date, to_date=exam_date, sess=exam_session))
 
 @app.route("/upload-practical", methods=["POST"])
 def upload_practical():
