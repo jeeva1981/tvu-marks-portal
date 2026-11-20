@@ -72,7 +72,6 @@ def save_reports(records):
 
 def upsert_report_entry(entry):
     records = load_reports()
-    # Replace existing entry for same token + module + group_key + date + session
     records = [
         r for r in records
         if not (
@@ -369,8 +368,9 @@ DASHBOARD_HTML = """
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; }
     th, td { padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left; }
     th { background: #f1f5f9; color: #1e293b; }
-    .st-done { background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
-    .st-pend { background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+    .st-done { background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+    .st-wait { background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+    .st-pend { background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
     a { color: white; text-decoration: none; font-weight: bold; }
   </style>
 </head>
@@ -462,7 +462,6 @@ DASHBOARD_HTML = """
       </form>
       {% if abs_msg %}<div class="msg-ok">{{ abs_msg }}</div>{% endif %}
 
-      <!-- Daily Attendance Live Status & Print -->
       <div class="status-panel">
         <div class="status-header">
           <h4 style="margin:0; color:#1e3a8a;">Daily Attendance Tracker ({{ selected_date_disp }} - {{ selected_sess }})</h4>
@@ -500,6 +499,7 @@ DASHBOARD_HTML = """
             <td style="font-size:11px;">{{ r.absent_regs }}</td>
             <td>
               {% if r.status == 'Completed' %}<span class="st-done">Completed ✅</span>
+              {% elif 'Filled' in r.status %}<span class="st-wait">Filled (Click SUBMIT in TVU) ⏳</span>
               {% else %}<span class="st-pend">Pending ⏳</span>{% endif %}
             </td>
           </tr>
@@ -551,7 +551,7 @@ DASHBOARD_HTML = """
 
       <div class="status-panel">
         <div class="status-header">
-          <h4 style="margin:0; color:#1e3a8a;">Internal Mark Entry Status (Completed vs Pending)</h4>
+          <h4 style="margin:0; color:#1e3a8a;">Internal Mark Entry Status (TVU Submit Verified)</h4>
           <a href="/print-report/internal" target="_blank" class="print-btn">🖨️ Print Internal Abstract</a>
         </div>
         <table>
@@ -566,6 +566,7 @@ DASHBOARD_HTML = """
             <td>{{ r.time }}</td>
             <td>
               {% if r.status == 'Completed' %}<span class="st-done">Completed ✅</span>
+              {% elif 'Filled' in r.status %}<span class="st-wait">Filled (Click SUBMIT in TVU) ⏳</span>
               {% else %}<span class="st-pend">Pending ⏳</span>{% endif %}
             </td>
           </tr>
@@ -633,7 +634,7 @@ DASHBOARD_HTML = """
 
       <div class="status-panel">
         <div class="status-header">
-          <h4 style="margin:0; color:#7c3aed;">Practical Mark Entry Status (Completed vs Pending)</h4>
+          <h4 style="margin:0; color:#7c3aed;">Practical Mark Entry Status (TVU Submit Verified)</h4>
           <a href="/print-report/practical" target="_blank" class="print-btn">🖨️ Print Practical Abstract</a>
         </div>
         <table>
@@ -649,6 +650,7 @@ DASHBOARD_HTML = """
             <td>{{ r.time }}</td>
             <td>
               {% if r.status == 'Completed' %}<span class="st-done">Completed ✅</span>
+              {% elif 'Filled' in r.status %}<span class="st-wait">Filled (Click SUBMIT in TVU) ⏳</span>
               {% else %}<span class="st-pend">Pending ⏳</span>{% endif %}
             </td>
           </tr>
@@ -725,7 +727,6 @@ PRINT_HTML = """
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { border: 1px solid #000; padding: 7px 8px; text-align: left; }
     th { background: #f1f5f9; }
-    .num { text-align: center; }
     .totals-row td { font-weight: bold; background: #f8fafc; }
     .sign-row { display: flex; justify-content: space-between; margin-top: 55px; font-weight: bold; font-size: 13px; }
     @media print {
@@ -922,7 +923,6 @@ def admin_toggle(username):
 def build_status_views(token, selected_date, selected_sess):
     all_reports = [r for r in load_reports() if r.get("token") == token]
 
-    # 1. Attendance Rows (merge uploaded pending + completed reports for date/session)
     att_rows = []
     seen_att_keys = set()
     for r in all_reports:
@@ -943,7 +943,7 @@ def build_status_views(token, selected_date, selected_sess):
             "present": r.get("present_count", 0),
             "absent": r.get("absent_count", 0),
             "absent_regs": ", ".join(r.get("absent_regs", [])) or "NIL",
-            "status": "Completed"
+            "status": r.get("status", "Completed")
         })
 
     for gkey, gdata in ABSENTEES_STORE.get(token, {}).items():
@@ -974,7 +974,6 @@ def build_status_views(token, selected_date, selected_sess):
         "absent": sum(r["absent"] for r in att_rows if isinstance(r["absent"], int)),
     }
 
-    # 2. Internal Marks Rows
     int_rows = []
     int_done_map = {r.get("group_key"): r for r in all_reports if r.get("module") == "internal"}
     int_all_keys = list(dict.fromkeys(list(MARKS_STORE.get(token, {}).keys()) + list(int_done_map.keys())))
@@ -988,7 +987,7 @@ def build_status_views(token, selected_date, selected_sess):
                 "total": r.get("total_students", 0),
                 "filled": r.get("filled_count", 0),
                 "time": r.get("updated_at", ""),
-                "status": "Completed"
+                "status": r.get("status", "Completed")
             })
         else:
             gdata = MARKS_STORE[token][gkey]
@@ -1002,7 +1001,6 @@ def build_status_views(token, selected_date, selected_sess):
                 "status": "Pending"
             })
 
-    # 3. Practical Marks Rows
     prac_rows = []
     prac_done_map = {r.get("group_key"): r for r in all_reports if r.get("module") == "practical"}
     prac_all_keys = list(dict.fromkeys(list(PRACTICAL_STORE.get(token, {}).keys()) + list(prac_done_map.keys())))
@@ -1017,7 +1015,7 @@ def build_status_views(token, selected_date, selected_sess):
                 "filled": r.get("filled_count", 0),
                 "absent": r.get("absent_count", 0),
                 "time": r.get("updated_at", ""),
-                "status": "Completed"
+                "status": r.get("status", "Completed")
             })
         else:
             gdata = PRACTICAL_STORE[token][gkey]
@@ -1065,9 +1063,9 @@ def dashboard():
         int_rows=int_rows,
         prac_rows=prac_rows,
         int_done=sum(1 for x in int_rows if x["status"] == "Completed"),
-        int_pend=sum(1 for x in int_rows if x["status"] == "Pending"),
+        int_pend=sum(1 for x in int_rows if x["status"] != "Completed"),
         prac_done=sum(1 for x in prac_rows if x["status"] == "Completed"),
-        prac_pend=sum(1 for x in prac_rows if x["status"] == "Pending"),
+        prac_pend=sum(1 for x in prac_rows if x["status"] != "Completed"),
         marks_msg=session.pop("marks_msg", None),
         abs_msg=session.pop("abs_msg", None),
         prac_msg=session.pop("prac_msg", None)
@@ -1097,7 +1095,7 @@ def print_report(rep_type):
         footer = ["", "", "", "", "GRAND TOTAL", att_summary["total"], att_summary["present"], att_summary["absent"], "", ""]
     elif rep_type == "internal":
         title = "Internal Marks Entry Status Abstract"
-        subtitle = f"Completed: {sum(1 for x in int_rows if x['status']=='Completed')} | Pending: {sum(1 for x in int_rows if x['status']=='Pending')}"
+        subtitle = f"Completed: {sum(1 for x in int_rows if x['status']=='Completed')} | Pending: {sum(1 for x in int_rows if x['status']!='Completed')}"
         headers = ["S.No", "UG/PG", "Discipline", "Subject Code", "Total Students", "Marks Entered", "Updated Time", "Status"]
         rows = [
             [i + 1, r["deg_tag"], r["discipline"], r["subject_code"], r["total"], r["filled"], r["time"], r["status"]]
@@ -1106,7 +1104,7 @@ def print_report(rep_type):
         footer = None
     else:
         title = "External Practical Marks Entry Status Abstract"
-        subtitle = f"Completed: {sum(1 for x in prac_rows if x['status']=='Completed')} | Pending: {sum(1 for x in prac_rows if x['status']=='Pending')}"
+        subtitle = f"Completed: {sum(1 for x in prac_rows if x['status']=='Completed')} | Pending: {sum(1 for x in prac_rows if x['status']!='Completed')}"
         headers = ["S.No", "UG/PG", "Discipline", "Subject Code", "Total Students", "Marks Entered", "Absent (AAA)", "Updated Time", "Status"]
         rows = [
             [i + 1, r["deg_tag"], r["discipline"], r["subject_code"], r["total"], r["filled"], r["absent"], r["time"], r["status"]]
@@ -1409,8 +1407,8 @@ def api_report_status():
     payload = request.get_json(silent=True) or {}
     module = payload.get("module", "")
     group_key = payload.get("group_key", "")
+    status = payload.get("status", "Completed")
 
-    # Fetch stored exam_date & exam_session if available for attendance
     att_meta = ABSENTEES_STORE.get(token, {}).get(group_key, {})
     exam_date = att_meta.get("exam_date", today_date_ist())
     exam_session = att_meta.get("exam_session", current_session_ist())
@@ -1431,9 +1429,12 @@ def api_report_status():
         "absent_count": payload.get("absent_count", 0),
         "absent_regs": payload.get("absent_regs", []),
         "filled_count": payload.get("filled_count", 0),
+        "status": status,
         "updated_at": now_ist()
     }
     upsert_report_entry(entry)
+    if status == "Completed":
+        log_activity(u, info["dept"], f"TVU Submit Confirmed ({module})", f"{format_group_label(group_key)}")
     return jsonify({"success": True})
 
 @app.route("/api/extension/list-subjects")
