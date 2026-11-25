@@ -3,8 +3,11 @@ import io
 import json
 import uuid
 import math
+from io import BytesIO
 from datetime import datetime, timezone, timedelta
 import pandas as pd
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from flask import Flask, request, render_template_string, redirect, url_for, session, jsonify, send_file
 from flask_cors import CORS
 
@@ -433,16 +436,16 @@ DASHBOARD_HTML = """
     <!-- 4 Main Navigation Buttons -->
     <div class="menu-grid">
       <button type="button" class="menu-btn btn-tab-red" onclick="openSection('absSection')">
-        1. Attendance Entry
+1. Attendance Entry
       </button>
       <button type="button" class="menu-btn btn-tab-blue" onclick="openSection('marksSection')">
-        2. Internal Mark Entry
+2. Internal Mark Entry
       </button>
       <button type="button" class="menu-btn btn-tab-purple" onclick="openSection('pracSection')">
-        3. Practical Mark Entry
+3. Practical Mark Entry
       </button>
       <button type="button" class="menu-btn btn-tab-teal" onclick="openSection('reportSection')">
-        4. PROFORMA CR-1 & Reports
+4. PROFORMA CR-1 & Reports
       </button>
     </div>
 
@@ -1135,7 +1138,7 @@ def get_filtered_cr1_rows(token, from_date, to_date, selected_sess):
 
 def build_status_views(token, from_date, to_date, selected_sess):
     all_reports = [r for r in load_reports() if r.get("token") == token]
-att_rows = []
+    att_rows = []
     att_done_by_gkey = {}
     att_done_by_sub = {}
     for r in all_reports:
@@ -1792,9 +1795,6 @@ def api_get_practical():
 def logout():
     session.clear()
     return redirect(url_for("login"))
-    from io import BytesIO
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 def build_portal_template_workbook() -> BytesIO:
     wb = openpyxl.Workbook()
@@ -1860,17 +1860,3 @@ def build_portal_template_workbook() -> BytesIO:
     wb.save(output)
     output.seek(0)
     return output
-
-
-# Flask route example for /download-template
-# @app.route("/download-template")
-# def download_template():
-#     stream = build_portal_template_workbook()
-#     return send_file(
-#         stream,
-#         as_attachment=True,
-#         download_name="College_Exam_Minimal_Template.xlsx",
-#         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-#     )
-
-   
