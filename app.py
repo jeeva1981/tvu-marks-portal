@@ -1137,52 +1137,52 @@ def build_status_views(token, from_date, to_date, selected_sess):
     all_reports = [r for r in load_reports() if r.get("token") == token]
 
     att_rows = []
-    seen_att_tuples = set()
+    att_done_by_gkey = {}
+    att_done_by_sub = {}
     for r in all_reports:
-        if r.get("module") != "attendance":
-            continue
-        r_date = r.get("date", "")
-        r_sess = r.get("session", "")
-        if not date_in_range(r_date, from_date, to_date):
-            continue
-        if selected_sess and selected_sess != "ALL" and r_sess != selected_sess:
-            continue
-        seen_att_tuples.add((r.get("group_key"), r_date, r_sess))
-        att_rows.append({
-            "date": r_date,
-            "date_disp": display_date_ist(r_date),
-            "session": r_sess,
-            "deg_tag": normalize_deg_tag(r.get("degree_type", "")),
-            "discipline": r.get("discipline", ""),
-            "subject_code": r.get("subject_code", ""),
-            "subject_title": r.get("subject_title", ""),
-            "total": r.get("total_students", 0),
-            "present": r.get("present_count", 0),
-            "absent": r.get("absent_count", 0),
-            "absent_regs": ", ".join(r.get("absent_regs", [])) or "NIL",
-            "status": r.get("status", "Completed")
-        })
+        if r.get("module") == "attendance":
+            gk = str(r.get("group_key") or "").strip()
+            sc = str(r.get("subject_code") or "").strip().upper()
+            if gk:
+                att_done_by_gkey[gk] = r
+            if sc:
+                att_done_by_sub[sc] = r
 
     for gkey, gdata in ABSENTEES_STORE.get(token, {}).items():
-        g_date = gdata.get("exam_date", today_date_ist())
-        g_sess = gdata.get("exam_session", "FN")
-        if not date_in_range(g_date, from_date, to_date):
-            continue
-        if selected_sess and selected_sess != "ALL" and g_sess != selected_sess:
-            continue
-        if (gkey, g_date, g_sess) not in seen_att_tuples:
+        sub_code = str(gdata.get("subject_code") or "").strip().upper()
+        done_rec = att_done_by_gkey.get(gkey) or att_done_by_sub.get(sub_code)
+        abs_list = gdata.get("absentees", [])
+
+        if done_rec and str(done_rec.get("status") or "").lower() == "completed":
+            tot_val = done_rec.get("total_students", "-")
+            pres_val = done_rec.get("present_count", "-")
+            abs_val = done_rec.get("absent_count", len(abs_list))
+            done_regs = done_rec.get("absent_regs") or abs_list
             att_rows.append({
-                "date": g_date,
-                "date_disp": display_date_ist(g_date),
-                "session": g_sess,
+                "date": done_rec.get("date") or gdata.get("exam_date", today_date_ist()),
+                "session": done_rec.get("session") or gdata.get("exam_session", current_session_ist()),
+                "deg_tag": normalize_deg_tag(done_rec.get("degree_type") or gdata.get("degree_type", "")),
+                "discipline": done_rec.get("discipline") or gdata.get("discipline", ""),
+                "subject_code": sub_code,
+                "subject_title": done_rec.get("subject_title") or sub_code,
+                "total": tot_val,
+                "present": pres_val,
+                "absent": abs_val,
+                "absent_regs": ", ".join(done_regs) if isinstance(done_regs, list) else (str(done_regs) or "NIL"),
+                "status": "Completed"
+            })
+        else:
+            att_rows.append({
+                "date": gdata.get("exam_date", today_date_ist()),
+                "session": gdata.get("exam_session", current_session_ist()),
                 "deg_tag": normalize_deg_tag(gdata.get("degree_type", "")),
                 "discipline": gdata.get("discipline", ""),
-                "subject_code": gdata.get("subject_code", ""),
+                "subject_code": sub_code,
                 "subject_title": "(Uploaded - Pending TVU Entry)",
                 "total": "-",
                 "present": "-",
-                "absent": len(gdata.get("absentees", [])),
-                "absent_regs": ", ".join(gdata.get("absentees", [])) or "NIL",
+                "absent": len(abs_list),
+                "absent_regs": ", ".join(abs_list) or "NIL",
                 "status": "Pending"
             })
 
