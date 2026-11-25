@@ -1875,26 +1875,4 @@ def build_portal_template_workbook() -> BytesIO:
 #         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 #     )
 
-    @app.route("/download-template")
-@app.route("/download-model-template")
-def download_minimal_2col_template():
-    import openpyxl
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Exam_Absentees"
-    ws.append(["Subject Code", "Register No"])
-    ws.append(["23UCM51", "20424U10008"])
-    ws.append(["23UBA51", "20424U06008"])
-    ws.append(["23PCM31", "20424P10002"])
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return send_file(
-        buf,
-        as_attachment=True,
-        download_name="College_Exam_Minimal_Template.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+   
