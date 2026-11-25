@@ -978,11 +978,11 @@ def download_template(tpl_type):
             filename = "College_Internal_Marks_Template.xlsx"
         elif tpl_type == "absentees":
            df = pd.DataFrame([
-        {"Register No": "20424U10005", "Subject Code": "23ULT10", "Semester": "01"},
-        {"Register No": "20424U06008", "Subject Code": "23ULT10", "Semester": "01"},
-        {"Register No": "20424P10002", "Subject Code": "23PCM11", "Semester": "01"},
-    ])
-            df.to_excel(writer, sheet_name="Absentees_Entry", index=False)
+            {"Register No": "20424U10005", "Subject Code": "23ULT10", "Semester": "01"},
+            {"Register No": "20424U06008", "Subject Code": "23ULT10", "Semester": "01"},
+            {"Register No": "20424P10002", "Subject Code": "23PCM11", "Semester": "01"},
+        ])
+        df.to_excel(writer, sheet_name="Absentees_Entry", index=False)
             filename = "College_Absentees_Template.xlsx"
         else:
             df = pd.DataFrame([
