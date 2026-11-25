@@ -1794,6 +1794,87 @@ def api_get_practical():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+    from io import BytesIO
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+def build_portal_template_workbook() -> BytesIO:
+    wb = openpyxl.Workbook()
+
+    ws_abs = wb.active
+    ws_abs.title = "Exam_Absentees"
+    ws_abs.append(["Subject Code", "Register No"])
+    for r in [
+        ["23UCM51", "20424U10008"],
+        ["23UBA51", "20424U06008"],
+        ["23PCM31", "20424P10002"],
+    ]:
+        ws_abs.append(r)
+
+    ws_int = wb.create_sheet("Internal_Marks")
+    ws_int.append(["Subject Code", "Register No", "Att", "Test", "Ass"])
+    for r in [
+        ["23UCM51", "20424U10008", 5, 14, 5],
+        ["23PCM31", "20424P10002", 5, 13, 5],
+    ]:
+        ws_int.append(r)
+
+    ws_prac = wb.create_sheet("Practical_Marks")
+    ws_prac.append(["Subject Code", "Register No", "Mark"])
+    for r in [
+        ["23UCS5P", "20424U18012", 58],
+        ["23PCS3P", "20424P18004", 56],
+    ]:
+        ws_prac.append(r)
+
+    header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    zebra_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin", color="CBD5E1"),
+        right=Side(style="thin", color="CBD5E1"),
+        top=Side(style="thin", color="CBD5E1"),
+        bottom=Side(style="thin", color="CBD5E1"),
+    )
+
+    for ws in [ws_abs, ws_int, ws_prac]:
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        for col_idx, col in enumerate(ws.columns, start=1):
+            max_len = 0
+            col_letter = openpyxl.utils.get_column_letter(col_idx)
+            for row_idx, cell in enumerate(col, start=1):
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                if row_idx == 1:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                else:
+                    cell.font = Font(name="Calibri", size=11, color="0F172A")
+                    if row_idx % 2 == 1:
+                        cell.fill = zebra_fill
+                val_len = len(str(cell.value or ""))
+                if val_len > max_len:
+                    max_len = val_len
+            ws.column_dimensions[col_letter].width = max(max_len + 6, 18)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+# Flask route example for /download-template
+# @app.route("/download-template")
+# def download_template():
+#     stream = build_portal_template_workbook()
+#     return send_file(
+#         stream,
+#         as_attachment=True,
+#         download_name="College_Exam_Minimal_Template.xlsx",
+#         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+#     )
+
     @app.route("/download-template")
 @app.route("/download-model-template")
 def download_minimal_2col_template():
