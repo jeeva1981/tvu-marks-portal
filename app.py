@@ -1135,8 +1135,7 @@ def get_filtered_cr1_rows(token, from_date, to_date, selected_sess):
 
 def build_status_views(token, from_date, to_date, selected_sess):
     all_reports = [r for r in load_reports() if r.get("token") == token]
-
-    att_rows = []
+att_rows = []
     att_done_by_gkey = {}
     att_done_by_sub = {}
     for r in all_reports:
@@ -1185,7 +1184,6 @@ def build_status_views(token, from_date, to_date, selected_sess):
                 "absent_regs": ", ".join(abs_list) or "NIL",
                 "status": "Pending"
             })
-
     att_rows.sort(key=lambda x: (x["date"], 0 if x["session"] == "FN" else 1, x["discipline"], x["subject_code"]))
 
     att_summary = {
