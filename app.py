@@ -11,6 +11,8 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from flask import Flask, request, render_template_string, redirect, url_for, session, jsonify, send_file
 from flask_cors import CORS
 
+APP_VERSION = "V6.8"
+
 app = Flask(__name__)
 app.secret_key = "college_super_secret_key_2026"
 CORS(app)
@@ -19,6 +21,7 @@ USERS_FILE = "users.json"
 LOGS_FILE = "activity_logs.json"
 REPORTS_FILE = "exam_reports.json"
 CR1_FILE = "cr1_reports.json"
+FEATURES_FILE = "user_features.json"
 
 MARKS_STORE = {}
 ABSENTEES_STORE = {}
@@ -61,6 +64,37 @@ def make_group_key(deg_type, discipline, subject_code):
 def format_group_label(key):
     parts = [p for p in key.split("||") if p]
     return " - ".join(parts)
+
+def load_user_features(token):
+    default_cfg = {"abs": True, "marks": True, "prac": True, "cr1": True}
+    if os.path.exists(FEATURES_FILE):
+        try:
+            with open(FEATURES_FILE, "r", encoding="utf-8") as f:
+                all_cfg = json.load(f)
+            if token in all_cfg and isinstance(all_cfg[token], dict):
+                merged = dict(default_cfg)
+                merged.update({k: bool(all_cfg[token].get(k, True)) for k in default_cfg})
+                return merged
+        except Exception:
+            pass
+    return default_cfg
+
+def save_user_features(token, cfg):
+    all_cfg = {}
+    if os.path.exists(FEATURES_FILE):
+        try:
+            with open(FEATURES_FILE, "r", encoding="utf-8") as f:
+                all_cfg = json.load(f)
+        except Exception:
+            all_cfg = {}
+    all_cfg[token] = {
+        "abs": bool(cfg.get("abs", False)),
+        "marks": bool(cfg.get("marks", False)),
+        "prac": bool(cfg.get("prac", False)),
+        "cr1": bool(cfg.get("cr1", False))
+    }
+    with open(FEATURES_FILE, "w", encoding="utf-8") as f:
+        json.dump(all_cfg, f, indent=2)
 
 def load_reports():
     if os.path.exists(REPORTS_FILE):
@@ -241,11 +275,12 @@ LOGIN_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>College Automation Portal - Login</title>
+  <title>College Automation Portal - Login ({{ app_version }})</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
     .box { background: white; padding: 32px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 360px; }
-    h2 { color: #1e3a8a; text-align: center; margin-top: 0; margin-bottom: 20px; }
+    h2 { color: #1e3a8a; text-align: center; margin-top: 0; margin-bottom: 6px; }
+    .ver { text-align: center; font-size: 11px; color: #64748b; font-weight: bold; margin-bottom: 18px; }
     label { font-weight: bold; font-size: 13px; color: #334155; display: block; margin-top: 14px; }
     input { width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
     button { width: 100%; padding: 11px; background: #1e3a8a; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 15px; margin-top: 22px; cursor: pointer; }
@@ -256,6 +291,7 @@ LOGIN_HTML = """
 <body>
   <div class="box">
     <h2>College Automation Portal</h2>
+    <div class="ver">Release {{ app_version }}</div>
     <form method="POST">
       <label>Username</label>
       <input type="text" name="username" placeholder="Enter Username" required>
@@ -274,7 +310,7 @@ ADMIN_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>College Automation Portal - Super Admin</title>
+  <title>College Automation Portal - Super Admin ({{ app_version }})</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 25px; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
@@ -295,7 +331,7 @@ ADMIN_HTML = """
 </head>
 <body>
   <div class="header">
-    <h3>College Automation Portal - Super Admin & Live Usage Monitor</h3>
+    <h3>College Automation Portal ({{ app_version }}) - Super Admin & Live Usage Monitor</h3>
     <div>
       <a href="/admin" style="margin-right:15px;">↻ Refresh</a>
       <a href="/logout">Logout</a>
@@ -372,12 +408,13 @@ DASHBOARD_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>College Automation Portal - Dashboard</title>
+  <title>College Automation Portal - Dashboard ({{ app_version }})</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 20px; margin: 0; }
     .container { max-width: 1050px; margin: 15px auto; }
     .header { background: #1e3a8a; color: white; padding: 15px 25px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
-    .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+    .token-bar { background: #fef9c3; border: 1px solid #fde047; padding: 12px 20px; border-radius: 6px; margin-top: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .feat-bar { background: #ffffff; border: 1px solid #cbd5e1; padding: 10px 16px; border-radius: 6px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
     .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
     .menu-btn { padding: 18px 10px; border: none; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.12); transition: transform 0.15s, opacity 0.15s; text-align: center; }
     .menu-btn:hover { transform: translateY(-2px); opacity: 0.95; }
@@ -421,7 +458,7 @@ DASHBOARD_HTML = """
 <body>
   <div class="container">
     <div class="header">
-      <div><b>{{ dept }}</b> ({{ username }})</div>
+      <div><b>{{ dept }}</b> ({{ username }}) <span style="font-size:11px; background:#172554; padding:2px 7px; border-radius:4px; margin-left:6px;">{{ app_version }}</span></div>
       <div>
         <a href="/dashboard?from_date={{ from_date }}&to_date={{ to_date }}&sess={{ selected_sess }}" style="margin-right:15px;">↻ Refresh Status</a>
         <a href="/logout">Logout</a>
@@ -432,6 +469,27 @@ DASHBOARD_HTML = """
       <div>Extension Token: <span style="color:#dc2626;">{{ token }}</span></div>
       <div style="font-size:12px; color:#334155;">Today: {{ today_disp }} ({{ current_sess }} Session) | Auto-Synced CR-1 Records: <b>{{ cr1_total_saved }}</b></div>
     </div>
+
+    <form method="POST" action="/save-extension-features" class="feat-bar">
+      <div style="font-weight:bold; font-size:12.5px; color:#1e3a8a;">Extension Visible Options (Tick to Show in Extension):</div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; font-weight:600;">
+        <label style="margin:0; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+          <input type="checkbox" name="feat_abs" {% if ext_features.abs %}checked{% endif %}> 1. Attendance
+        </label>
+        <label style="margin:0; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+          <input type="checkbox" name="feat_marks" {% if ext_features.marks %}checked{% endif %}> 2. Internal Marks
+        </label>
+        <label style="margin:0; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+          <input type="checkbox" name="feat_prac" {% if ext_features.prac %}checked{% endif %}> 3. Practical Marks
+        </label>
+        <label style="margin:0; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+          <input type="checkbox" name="feat_cr1" {% if ext_features.cr1 %}checked{% endif %}> 4. PROFORMA CR-1
+        </label>
+      </div>
+      <button type="submit" class="tpl-btn" style="border:none; cursor:pointer;">Save Extension View</button>
+    </form>
+
+    {% if feat_msg %}<div class="msg-ok" style="margin-top:10px;">{{ feat_msg }}</div>{% endif %}
 
     <!-- 4 Main Navigation Buttons -->
     <div class="menu-grid">
@@ -712,12 +770,12 @@ DASHBOARD_HTML = """
     <!-- 4. PROFORMA CR-1 & Consolidated Reports Center -->
     <div id="reportSection" class="card {% if active_tab == 'report' %}active{% endif %}">
       <div class="card-head">
-        <h3 style="color:#0f766e;">4. Official PROFORMA CR-1 & Consolidated Reports Center</h3>
+        <h3 style="color:#0f766e;">4. Official PROFORMA CR-1 & Consolidated Reports Center ({{ app_version }})</h3>
       </div>
       <div class="row3">
         <div class="upload-box" style="text-align:center; border-color:#0f766e; background:#f0fdfa;">
           <h4 style="margin:0 0 6px 0; color:#0f766e;">Official PROFORMA CR-1 (TVU Format)</h4>
-          <p style="font-size:11px; color:#334155; margin:0 0 6px 0;">Answer Booklet Collection Report (Auto-Synced from TVU)</p>
+          <p style="font-size:11px; color:#334155; margin:0 0 6px 0;">Answer Booklet Collection Report (Auto-Synced + Attendance Fallback)</p>
           <form method="GET" action="/print-report/cr1" target="_blank" style="margin:0;">
             <label style="text-align:left;">From Date:</label>
             <input type="date" name="from_date" value="{{ from_date }}" required>
@@ -761,9 +819,9 @@ DASHBOARD_HTML = """
       </div>
 
       <div class="status-panel">
-        <h4 style="margin:0 0 8px 0; color:#0f766e;">Auto-Synced TVU CR-1 Records Stored on Server ({{ cr1_rows|length }})</h4>
+        <h4 style="margin:0 0 8px 0; color:#0f766e;">PROFORMA CR-1 Records for Selected Range ({{ cr1_rows|length }})</h4>
         <table>
-          <tr><th>SL.no</th><th>Date of Exam</th><th>Session</th><th>Subject Code</th><th>Registered</th><th>Present</th><th>Absent</th><th>Covers (30/Cover)</th><th>Synced At</th></tr>
+          <tr><th>SL.no</th><th>Date of Exam</th><th>Session</th><th>Subject Code</th><th>Registered</th><th>Present</th><th>Absent</th><th>Covers (30/Cover)</th><th>Source / Synced At</th></tr>
           {% for c in cr1_rows %}
           <tr>
             <td>{{ loop.index }}</td>
@@ -777,7 +835,7 @@ DASHBOARD_HTML = """
             <td style="font-size:11px;">{{ c.synced_at }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="9" style="text-align:center; color:#64748b;">No CR-1 records synced yet. Click "⚡ Auto-Fetch & Generate CR-1" in Chrome Extension on coe.tvu.edu.in.</td></tr>
+          <tr><td colspan="9" style="text-align:center; color:#64748b;">No CR-1 records found for this date/session range.</td></tr>
           {% endfor %}
         </table>
       </div>
@@ -802,7 +860,7 @@ CR1_PRINT_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PROFORMA CR-1 - Answer Booklet Collection Report</title>
+  <title>PROFORMA CR-1 - Answer Booklet Collection Report ({{ app_version }})</title>
   <style>
     body { font-family: 'Times New Roman', serif; margin: 22px; color: #000; }
     .no-print { background: #1e3a8a; color: #fff; padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; font-family: 'Segoe UI', sans-serif; font-size: 13px; }
@@ -827,7 +885,7 @@ CR1_PRINT_HTML = """
 </head>
 <body>
   <div class="no-print">
-    <span><b>PROFORMA CR-1 Ready</b> — Click any "Total no. of Covers" cell to edit before printing</span>
+    <span><b>PROFORMA CR-1 ({{ app_version }}) Ready</b> — Click any cell to edit before printing</span>
     <button onclick="window.print()">🖨️ Print CR-1 Report</button>
   </div>
 
@@ -874,13 +932,13 @@ CR1_PRINT_HTML = """
         <td>{{ r.date_disp }}</td>
         <td>{{ r.session }}</td>
         <td style="font-weight:bold;">{{ r.subject_code }} {% if r.depts %}<span style="font-weight:normal; font-size:10.5px;">({{ r.depts|join(', ') }})</span>{% endif %}</td>
-        <td>{{ r.registered }}</td>
-        <td>{{ r.present }}</td>
-        <td>{{ r.absent }}</td>
+        <td contenteditable="true">{{ r.registered }}</td>
+        <td contenteditable="true">{{ r.present }}</td>
+        <td contenteditable="true">{{ r.absent }}</td>
         <td contenteditable="true">{{ r.covers }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="8" style="padding:16px; color:#b91c1c;">No synced CR-1 records found for {{ range_disp }} ({{ selected_sess }}).</td></tr>
+      <tr><td colspan="8" style="padding:16px; color:#b91c1c;">No CR-1 records found for {{ range_disp }} ({{ selected_sess }}).</td></tr>
       {% endfor %}
       <tr class="tot-row">
         <td colspan="4" style="text-align:right; padding-right:10px;">TOTAL</td>
@@ -906,7 +964,7 @@ PRINT_HTML = """
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>{{ title }} - Print Report</title>
+  <title>{{ title }} - Print Report ({{ app_version }})</title>
   <style>
     body { font-family: 'Times New Roman', serif; padding: 20px; color: #000; }
     .no-print { background: #1e3a8a; color: white; padding: 10px 18px; border-radius: 6px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; font-family: 'Segoe UI', sans-serif; }
@@ -925,7 +983,7 @@ PRINT_HTML = """
 </head>
 <body>
   <div class="no-print">
-    <span>Print Preview Ready — Click Print to save as PDF or print on A4 paper.</span>
+    <span>Print Preview Ready ({{ app_version }}) — Click Print to save as PDF or print on A4 paper.</span>
     <button onclick="window.print()">🖨️ Print Now</button>
   </div>
   <div class="header-box">
@@ -1014,12 +1072,12 @@ def login():
         users = load_users()
         if u in users and users[u]["password"] == p:
             if not users[u]["active"]:
-                return render_template_string(LOGIN_HTML, error="Your account has been temporarily blocked.")
+                return render_template_string(LOGIN_HTML, error="Your account has been temporarily blocked.", app_version=APP_VERSION)
             session["user"] = u
-            log_activity(u, users[u]["dept"], "Portal Login", "Logged into web portal")
+            log_activity(u, users[u]["dept"], "Portal Login", f"Logged into web portal ({APP_VERSION})")
             return redirect(url_for("dashboard"))
-        return render_template_string(LOGIN_HTML, error="Invalid Username or Password!")
-    return render_template_string(LOGIN_HTML, error=None)
+        return render_template_string(LOGIN_HTML, error="Invalid Username or Password!", app_version=APP_VERSION)
+    return render_template_string(LOGIN_HTML, error=None, app_version=APP_VERSION)
 
 @app.route("/admin")
 def admin_panel():
@@ -1029,7 +1087,8 @@ def admin_panel():
         ADMIN_HTML,
         users=load_users(),
         logs=get_logs(),
-        admin_msg=session.pop("admin_msg", None)
+        admin_msg=session.pop("admin_msg", None),
+        app_version=APP_VERSION
     )
 
 @app.route("/admin/update/<old_username>", methods=["POST"])
@@ -1092,6 +1151,32 @@ def admin_toggle(username):
         save_users(users)
     return redirect(url_for("admin_panel"))
 
+@app.route("/save-extension-features", methods=["POST"])
+def save_extension_features():
+    u = session.get("user")
+    users = load_users()
+    if not u or u not in users:
+        return redirect(url_for("login"))
+    token = users[u]["token"]
+    cfg = {
+        "abs": "feat_abs" in request.form,
+        "marks": "feat_marks" in request.form,
+        "prac": "feat_prac" in request.form,
+        "cr1": "feat_cr1" in request.form,
+    }
+    save_user_features(token, cfg)
+    active_names = [
+        name for flag, name in [
+            (cfg["abs"], "1. Attendance"),
+            (cfg["marks"], "2. Internal Marks"),
+            (cfg["prac"], "3. Practical Marks"),
+            (cfg["cr1"], "4. PROFORMA CR-1"),
+        ] if flag
+    ]
+    log_activity(u, users[u]["dept"], "Extension View Updated", ", ".join(active_names) or "None")
+    session["feat_msg"] = "Saved Extension View! Visible in Extension: " + (", ".join(active_names) if active_names else "None (all unticked).")
+    return redirect(url_for("dashboard"))
+
 def date_in_range(d_str, from_d, to_d):
     if not d_str:
         return False
@@ -1104,9 +1189,12 @@ def date_in_range(d_str, from_d, to_d):
 def get_filtered_cr1_rows(token, from_date, to_date, selected_sess):
     all_cr1 = [r for r in load_cr1_records() if r.get("token") == token]
     filtered = []
+    seen_keys = set()
+
     for r in all_cr1:
         d = r.get("date", "")
         s = r.get("session", "FN")
+        sub = str(r.get("subject_code", "")).strip().upper()
         if not date_in_range(d, from_date, to_date):
             continue
         if selected_sess and selected_sess != "ALL" and s != selected_sess:
@@ -1115,18 +1203,45 @@ def get_filtered_cr1_rows(token, from_date, to_date, selected_sess):
         reg = int(r.get("registered", 0))
         ab = int(r.get("absent", 0))
         cov = math.ceil(pres / 30) if pres > 0 else 0
+        seen_keys.add((d, s, sub))
         filtered.append({
             "date": d,
             "date_disp": display_date_ist(d),
             "session": s,
-            "subject_code": r.get("subject_code", ""),
+            "subject_code": sub,
             "depts": r.get("depts", []),
             "registered": reg,
             "present": pres,
             "absent": ab,
             "covers": cov,
-            "synced_at": r.get("synced_at", "")
+            "synced_at": r.get("synced_at", "TVU Sync")
         })
+
+    for gdata in ABSENTEES_STORE.get(token, {}).values():
+        d = gdata.get("exam_date", today_date_ist())
+        s = str(gdata.get("exam_session", current_session_ist())).upper()
+        sub = str(gdata.get("subject_code", "")).strip().upper()
+        if not sub or (d, s, sub) in seen_keys:
+            continue
+        if not date_in_range(d, from_date, to_date):
+            continue
+        if selected_sess and selected_sess != "ALL" and s != selected_sess:
+            continue
+        ab = len(gdata.get("absentees", []))
+        depts = [x for x in [normalize_deg_tag(gdata.get("degree_type", "")), gdata.get("discipline", "")] if x]
+        filtered.append({
+            "date": d,
+            "date_disp": display_date_ist(d),
+            "session": s,
+            "subject_code": sub,
+            "depts": depts,
+            "registered": 0,
+            "present": 0,
+            "absent": ab,
+            "covers": 0,
+            "synced_at": "Attendance Fallback (Edit before print)"
+        })
+
     filtered.sort(key=lambda x: (x["date"], 0 if x["session"] == "FN" else 1, x["subject_code"]))
     totals = {
         "registered": sum(x["registered"] for x in filtered),
@@ -1160,9 +1275,12 @@ def build_status_views(token, from_date, to_date, selected_sess):
             pres_val = done_rec.get("present_count", "-")
             abs_val = done_rec.get("absent_count", len(abs_list))
             done_regs = done_rec.get("absent_regs") or abs_list
+            r_date = done_rec.get("date") or gdata.get("exam_date", today_date_ist())
+            r_sess = done_rec.get("session") or gdata.get("exam_session", current_session_ist())
             att_rows.append({
-                "date": done_rec.get("date") or gdata.get("exam_date", today_date_ist()),
-                "session": done_rec.get("session") or gdata.get("exam_session", current_session_ist()),
+                "date": r_date,
+                "date_disp": display_date_ist(r_date),
+                "session": r_sess,
                 "deg_tag": normalize_deg_tag(done_rec.get("degree_type") or gdata.get("degree_type", "")),
                 "discipline": done_rec.get("discipline") or gdata.get("discipline", ""),
                 "subject_code": sub_code,
@@ -1174,9 +1292,12 @@ def build_status_views(token, from_date, to_date, selected_sess):
                 "status": "Completed"
             })
         else:
+            r_date = gdata.get("exam_date", today_date_ist())
+            r_sess = gdata.get("exam_session", current_session_ist())
             att_rows.append({
-                "date": gdata.get("exam_date", today_date_ist()),
-                "session": gdata.get("exam_session", current_session_ist()),
+                "date": r_date,
+                "date_disp": display_date_ist(r_date),
+                "session": r_sess,
                 "deg_tag": normalize_deg_tag(gdata.get("degree_type", "")),
                 "discipline": gdata.get("discipline", ""),
                 "subject_code": sub_code,
@@ -1301,7 +1422,10 @@ def dashboard():
         prac_pend=sum(1 for x in prac_rows if x["status"] != "Completed"),
         marks_msg=session.pop("marks_msg", None),
         abs_msg=session.pop("abs_msg", None),
-        prac_msg=session.pop("prac_msg", None)
+        prac_msg=session.pop("prac_msg", None),
+        feat_msg=session.pop("feat_msg", None),
+        ext_features=load_user_features(token),
+        app_version=APP_VERSION
     )
 
 @app.route("/print-report/<rep_type>")
@@ -1330,7 +1454,8 @@ def print_report(rep_type):
             totals=totals,
             range_disp=range_disp,
             selected_sess=selected_sess,
-            printed_on=now_ist()
+            printed_on=now_ist(),
+            app_version=APP_VERSION
         )
 
     att_rows, att_summary, int_rows, prac_rows = build_status_views(token, from_date, to_date, selected_sess)
@@ -1371,7 +1496,8 @@ def print_report(rep_type):
         printed_on=now_ist(),
         headers=headers,
         rows=rows,
-        footer_row=footer
+        footer_row=footer,
+        app_version=APP_VERSION
     )
 
 @app.route("/upload-marks", methods=["POST"])
@@ -1659,7 +1785,7 @@ def api_sync_cr1():
     rows = payload.get("rows", [])
     upsert_cr1_rows(token, rows)
     log_activity(u, info["dept"], "CR-1 Auto Sync", f"Synced {len(rows)} subjects ({payload.get('from_date', '')} to {payload.get('to_date', '')})")
-    return jsonify({"success": True, "synced_count": len(rows)})
+    return jsonify({"success": True, "synced_count": len(rows), "version": APP_VERSION})
 
 @app.route("/api/extension/report-status", methods=["POST"])
 def api_report_status():
@@ -1700,7 +1826,7 @@ def api_report_status():
     upsert_report_entry(entry)
     if status == "Completed":
         log_activity(u, info["dept"], f"TVU Submit Confirmed ({module})", f"{format_group_label(group_key)}")
-    return jsonify({"success": True})
+    return jsonify({"success": True, "version": APP_VERSION})
 
 @app.route("/api/extension/list-subjects")
 def api_list_subjects():
@@ -1709,11 +1835,14 @@ def api_list_subjects():
     u, info = find_user_by_token(token)
     if not info:
         return jsonify({"success": False, "error": "Invalid or blocked User Token!"})
-    abs_subs = list(ABSENTEES_STORE.get(token, {}).keys())
-    marks_subs = list(MARKS_STORE.get(token, {}).keys())
-    prac_subs = list(PRACTICAL_STORE.get(token, {}).keys())
+    features = load_user_features(token)
+    abs_subs = list(ABSENTEES_STORE.get(token, {}).keys()) if features.get("abs", True) else []
+    marks_subs = list(MARKS_STORE.get(token, {}).keys()) if features.get("marks", True) else []
+    prac_subs = list(PRACTICAL_STORE.get(token, {}).keys()) if features.get("prac", True) else []
     return jsonify({
         "success": True,
+        "version": APP_VERSION,
+        "enabled_features": features,
         "abs_subjects": abs_subs,
         "marks_subjects": marks_subs,
         "prac_subjects": prac_subs
