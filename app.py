@@ -1801,11 +1801,11 @@ def build_portal_template_workbook() -> BytesIO:
 
     ws_abs = wb.active
     ws_abs.title = "Exam_Absentees"
-    ws_abs.append(["Subject Code", "Register No"])
+    ws_abs.append(["Register No", "Subject Code", "Semester"])
     for r in [
-        ["23UCM51", "20424U10008"],
-        ["23UBA51", "20424U06008"],
-        ["23PCM31", "20424P10002"],
+        ["20424U10008", "23UCM51", "05"],
+        ["20424U06008", "23UBA51", "05"],
+        ["20424P10002", "23PCM31", "03"],
     ]:
         ws_abs.append(r)
 
