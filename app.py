@@ -154,9 +154,10 @@ def upsert_report_entry(entry):
         if not (
             r.get("token") == entry.get("token")
             and r.get("module") == entry.get("module")
-            and r.get("group_key") == entry.get("group_key")
-            and r.get("date") == entry.get("date")
-            and r.get("session") == entry.get("session")
+            and (
+                (entry.get("group_key") and r.get("group_key") == entry.get("group_key"))
+                or (entry.get("subject_code") and str(r.get("subject_code") or "").strip().upper() == str(entry.get("subject_code") or "").strip().upper())
+            )
         )
     ]
     records.insert(0, entry)
@@ -1257,7 +1258,7 @@ def build_status_views(token, from_date, to_date, selected_sess):
     att_done_by_gkey = {}
     att_done_by_sub = {}
     for r in all_reports:
-        if r.get("module") == "attendance":
+        if r.get("module") == "attendance" and str(r.get("status") or "").lower() == "completed":
             gk = str(r.get("group_key") or "").strip()
             sc = str(r.get("subject_code") or "").strip().upper()
             if gk:
@@ -1270,13 +1271,13 @@ def build_status_views(token, from_date, to_date, selected_sess):
         done_rec = att_done_by_gkey.get(gkey) or att_done_by_sub.get(sub_code)
         abs_list = gdata.get("absentees", [])
 
-        if done_rec and str(done_rec.get("status") or "").lower() == "completed":
+        if done_rec:
             tot_val = done_rec.get("total_students", "-")
             pres_val = done_rec.get("present_count", "-")
             abs_val = done_rec.get("absent_count", len(abs_list))
             done_regs = done_rec.get("absent_regs") or abs_list
-            r_date = done_rec.get("date") or gdata.get("exam_date", today_date_ist())
-            r_sess = done_rec.get("session") or gdata.get("exam_session", current_session_ist())
+            r_date = gdata.get("exam_date") or done_rec.get("date") or today_date_ist()
+            r_sess = gdata.get("exam_session") or done_rec.get("session") or current_session_ist()
             att_rows.append({
                 "date": r_date,
                 "date_disp": display_date_ist(r_date),
@@ -1797,23 +1798,37 @@ def api_report_status():
 
     payload = request.get_json(silent=True) or {}
     module = payload.get("module", "")
-    group_key = payload.get("group_key", "")
+    group_key = (payload.get("group_key") or "").strip()
+    sub_code = (payload.get("subject_code") or "").strip().upper()
     status = payload.get("status", "Completed")
 
-    att_meta = ABSENTEES_STORE.get(token, {}).get(group_key, {})
-    exam_date = att_meta.get("exam_date", today_date_ist())
-    exam_session = att_meta.get("exam_session", current_session_ist())
+    att_store = ABSENTEES_STORE.get(token, {})
+    att_meta = att_store.get(group_key)
+    if not att_meta and sub_code:
+        for _, gdata in att_store.items():
+            if str(gdata.get("subject_code") or "").strip().upper() == sub_code:
+                att_meta = gdata
+                break
+    att_meta = att_meta or {}
+
+    exam_date = payload.get("date") or att_meta.get("exam_date") or today_date_ist()
+    exam_session = payload.get("session") or att_meta.get("exam_session") or current_session_ist()
+    resolved_gkey = group_key or make_group_key(
+        payload.get("degree_type") or att_meta.get("degree_type", ""),
+        payload.get("discipline") or att_meta.get("discipline", ""),
+        sub_code or att_meta.get("subject_code", "")
+    )
 
     entry = {
         "token": token,
         "dept": info["dept"],
         "module": module,
-        "group_key": group_key,
+        "group_key": resolved_gkey,
         "date": exam_date,
         "session": exam_session,
-        "degree_type": payload.get("degree_type", ""),
-        "discipline": payload.get("discipline", ""),
-        "subject_code": payload.get("subject_code", ""),
+        "degree_type": payload.get("degree_type") or att_meta.get("degree_type", ""),
+        "discipline": payload.get("discipline") or att_meta.get("discipline", ""),
+        "subject_code": sub_code or att_meta.get("subject_code", ""),
         "subject_title": payload.get("subject_title", ""),
         "total_students": payload.get("total_students", 0),
         "present_count": payload.get("present_count", 0),
@@ -1825,7 +1840,7 @@ def api_report_status():
     }
     upsert_report_entry(entry)
     if status == "Completed":
-        log_activity(u, info["dept"], f"TVU Submit Confirmed ({module})", f"{format_group_label(group_key)}")
+        log_activity(u, info["dept"], f"TVU Submit Confirmed ({module})", f"{format_group_label(resolved_gkey) or sub_code}")
     return jsonify({"success": True, "version": APP_VERSION})
 
 @app.route("/api/extension/list-subjects")
